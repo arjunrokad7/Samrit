@@ -122,7 +122,9 @@ require("../backend/node_modules/dotenv").config({
     tab.on("pageerror", (e) => errors.push(e.message));
     await tab.goto("http://localhost:5173/consumer");
     await tab.getByRole("heading", { name: /A good meal/ }).waitFor();
-    await tab.getByLabel("Avoid a major allergen").selectOption("Wheat");
+    await tab.getByRole("button", { name: "Select your allergens", exact: true }).click();
+    await tab.getByRole("checkbox", { name: "Wheat", exact: true }).check();
+    await tab.keyboard.press("Escape");
     assert.equal(
       await tab
         .getByRole("heading", {
@@ -132,19 +134,15 @@ require("../backend/node_modules/dotenv").config({
         .count(),
       0,
     );
-    await tab
-      .getByRole("button", { name: "Leave feedback", exact: true })
-      .click();
-    await tab
-      .getByRole("button", { name: "Good experience", exact: true })
-      .click();
-    await tab
-      .getByRole("button", { name: "Preview private feedback", exact: true })
-      .click();
-    await tab
-      .getByRole("status")
-      .filter({ hasText: "Preview complete" })
-      .waitFor();
+    await tab.getByRole("link", { name: "Already at a place? Check in" }).click();
+    await tab.getByLabel("Entry QR code").fill("samrit:visit:east-village:entry");
+    await tab.getByRole("button", { name: "Record entry code" }).click();
+    await tab.getByRole("button", { name: "Leave a private anonymous review" }).click();
+    await tab.getByLabel("Exit QR code").fill("samrit:visit:east-village:exit");
+    await tab.getByRole("button", { name: "Record exit code" }).click();
+    await tab.getByRole("button", { name: "Good experience", exact: true }).click();
+    await tab.getByRole("button", { name: "Preview private review", exact: true }).click();
+    await tab.getByRole("status").filter({ hasText: "Review preview complete" }).waitFor();
     await tab.screenshot({
       path: path.join(output, "consumer-mobile.png"),
       fullPage: true,

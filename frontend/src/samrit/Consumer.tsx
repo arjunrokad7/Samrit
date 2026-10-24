@@ -1,4 +1,3 @@
-import { Sheet } from "./Sheet";
 import { ui } from "./design";
 import { useState } from "react";
 import { Link } from "react-router-dom";
@@ -6,13 +5,12 @@ import {
   ArrowLeft,
   Heart,
   MapPin,
-  ThumbsDown,
-  ThumbsUp,
   Clock,
   SlidersHorizontal,
 } from "lucide-react";
-import { ALLERGENS } from "./api";
+import AllergenSelect from './AllergenSelect';
 import { Brand } from "./Auth";
+import { PublicFooter, TermsNotice } from './PublicLinks';
 const venues = [
   {
     name: "East Village Community Table",
@@ -46,20 +44,19 @@ const venues = [
   },
 ];
 export default function Consumer() {
-  const [avoid, setAvoid] = useState("");
+  const [avoid, setAvoid] = useState<string[]>([]);
   const [diet, setDiet] = useState("");
-  const [review, setReview] = useState("");
-  const [sentiment, setSentiment] = useState("");
-  const [sent, setSent] = useState(false);
-  const [feedbackOpen, setFeedbackOpen] = useState(false);
   return (
     <div className={ui("sr-consumer")}>
       <nav className={ui("sr-public-nav")}>
         <Brand />
-        <Link to="/">
+        <div className="max-sm:flex-col max-sm:!gap-2">
+        <Link to="/" className="!inline-flex whitespace-nowrap">
           <ArrowLeft size={16} />
           Back home
         </Link>
+        <Link to="/consumer/check-in" className={ui('sr-button sr-small !inline-flex')}>Check in here</Link>
+        </div>
       </nav>
       <main>
         <div className={ui("sr-demo-label")}>
@@ -71,22 +68,17 @@ export default function Consumer() {
           <br />A warm welcome.
         </h1>
         <p>Explore what a dignified community meal finder could look like.</p>
+        <TermsNotice className="mb-6 mt-3" />
+        <h2 className="mb-6 mt-10 text-3xl md:text-4xl">Find a place that works for you.</h2>
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
         <section className={ui("sr-panel")}>
           <div className={ui("sr-panel-heading")}>
             <h3>Your preferences</h3>
             <SlidersHorizontal size={20} />
           </div>
+          <AllergenSelect value={avoid} onChange={setAvoid} />
           <label>
-            Avoid a major allergen
-            <select value={avoid} onChange={(e) => setAvoid(e.target.value)}>
-              <option value="">Show all demo meals</option>
-              {ALLERGENS.map((allergen) => (
-                <option key={allergen}>{allergen}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Anything else we should know?
+            Any other preferences or dietary restrictions?
             <input
               value={diet}
               onChange={(e) => setDiet(e.target.value)}
@@ -99,7 +91,7 @@ export default function Consumer() {
             cross-contact with center staff.
           </small>
         </section>
-        <div className={ui("sr-consumer-map")}>
+        <div className={ui("sr-consumer-map !my-0 lg:!h-[360px]")}>
           <MapPin size={33} />
           <strong>New York City</strong>
           <span>Illustrative neighborhood view</span>
@@ -113,15 +105,17 @@ export default function Consumer() {
             <Heart size={16} />
           </div>
         </div>
+        </div>
         <div className={ui("sr-panel-heading")}>
           <h2>Around your neighborhood</h2>
           <span>Demo results</span>
         </div>
+        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {venues
-          .filter((venue) => !avoid || !venue.allergens.includes(avoid))
+          .filter((venue) => !avoid.some((allergen) => venue.allergens.includes(allergen)))
           .map((venue) => (
             <article
-              className={ui("sr-panel sr-consumer-venue")}
+              className={ui("sr-panel sr-consumer-venue !my-0")}
               key={venue.name}
             >
               <div className={ui("sr-panel-heading")}>
@@ -149,68 +143,15 @@ export default function Consumer() {
               </a>
             </article>
           ))}
-        <section className={ui("sr-panel")}>
-          <span className={ui("sr-eyebrow")}>YOUR EXPERIENCE MATTERS</span>
-          <h3>Tell us about your visit.</h3>
-          <p>Feedback would go privately to the central NGO.</p>
-          <button
-            type="button"
-            className={ui("sr-button")}
-            onClick={() => setFeedbackOpen(true)}
-          >
-            Leave feedback
-          </button>
-          {feedbackOpen && (
-            <Sheet
-              title="Tell us about your visit"
-              onClose={() => setFeedbackOpen(false)}
-            >
-              <div className={ui("sr-choice-row")}>
-                <button
-                  className={ui(
-                    `sr-button ${sentiment === "positive" ? "" : "sr-secondary"}`,
-                  )}
-                  onClick={() => setSentiment("positive")}
-                  aria-pressed={sentiment === "positive"}
-                >
-                  <ThumbsUp size={18} />
-                  Good experience
-                </button>
-                <button
-                  className={ui(
-                    `sr-button ${sentiment === "negative" ? "" : "sr-secondary"}`,
-                  )}
-                  onClick={() => setSentiment("negative")}
-                  aria-pressed={sentiment === "negative"}
-                >
-                  <ThumbsDown size={18} />
-                  Needs attention
-                </button>
-              </div>
-              <label>
-                Optional details
-                <textarea
-                  value={review}
-                  onChange={(e) => setReview(e.target.value)}
-                />
-              </label>
-              <button
-                className={ui("sr-button")}
-                disabled={!sentiment}
-                onClick={() => setSent(true)}
-              >
-                Preview private feedback
-              </button>
-              {sent && (
-                <p role="status" className={ui("sr-success")}>
-                  Preview complete. This concept does not save or send reviews.
-                </p>
-              )}
-            </Sheet>
-          )}
+        </div>
+        <section className="my-8 rounded-2xl bg-samrita-charcoal p-6 text-white shadow-stacked shadow-samrita-iron">
+          <h2 className="text-3xl">Already at a place?</h2>
+          <p className="my-4 text-sm">Check in when you arrive. After your visit, share a private, anonymous review.</p>
+          <Link to="/consumer/check-in" className={ui('sr-button !whitespace-normal')}>Already at a place? Check in</Link>
+          <p className="mt-4 text-xs text-white/80">Preview workflow only. Nothing is sent to a venue or NGO.</p>
         </section>
       </main>
-      <footer className={ui("sr-footer")}>Samrit · Consumer concept</footer>
+      <PublicFooter />
     </div>
   );
 }

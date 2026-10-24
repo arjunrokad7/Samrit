@@ -15,19 +15,20 @@ import {
 import { Brand } from "./Auth";
 import { useSession } from "./session";
 import { REGION } from "./api";
+import { PublicFooter, TermsNotice } from './PublicLinks';
 export default function Landing() {
   const { user } = useSession();
   return (
     <div className={ui("sr-landing")}>
       <nav className={ui("sr-public-nav")}>
         <Brand />
-        <div>
+        <div className="max-sm:shrink-0 max-sm:flex-col max-sm:!items-center max-sm:!gap-3">
           <a href="#how">How it works</a>
-          <Link to="/consumer">
+          <Link to="/consumer" className={ui('sr-button sr-small !bg-samrita-charcoal !shadow-samrita-iron')}>
             Find a meal <ArrowUpRight size={14} />
           </Link>
           <Link
-            className={ui("sr-button sr-small")}
+            className={ui("sr-text-link whitespace-nowrap max-sm:w-full max-sm:justify-center max-sm:border-t max-sm:border-samrita-charcoal/20 max-sm:pt-3")}
             to={user ? "/dashboard" : "/login"}
           >
             {user ? "Open workspace" : "Sign in"}
@@ -36,34 +37,39 @@ export default function Landing() {
         </div>
       </nav>
       <main>
-        <section className={ui("sr-hero")}>
+        <section className={ui("sr-hero")} aria-labelledby="meal-first-heading">
           <div>
             <span className={ui("sr-eyebrow")}>
-              <span className={ui("sr-live-dot")} /> FOOD RECOVERY, WITH
-              FOLLOW-THROUGH
+              <span className={ui("sr-live-dot")} /> A PLACE AT THE TABLE, FOR YOU
             </span>
-            <h1>
+            <h1 id="meal-first-heading">
               Good food.
-              <br />A second chance.
+              <br />A place for you.
               <br />
               <em>A shared table.</em>
             </h1>
             <p>
-              We connect event organizers, volunteer drivers, and community
-              kitchens to turn surplus into something that matters.
+              Looking for a meal in New York City? Start here. Explore community
+              kitchens and dietary preferences, or help make the next meal possible.
             </p>
-            <div className={ui("sr-hero-actions")}>
-              <Link
-                className={ui("sr-button")}
-                to={user ? "/dashboard" : "/register"}
-              >
-                Be part of the next meal
-                <ArrowUpRight size={20} />
-              </Link>
-              <a className={ui("sr-text-link")} href="#how">
-                See how it works <ArrowRight size={17} />
-              </a>
+            <div className="mt-8 grid gap-5 sm:grid-cols-2">
+              <div>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-samrita-teal">Looking for food?</p>
+                <Link to="/consumer" className={ui('sr-button !min-h-[76px] !w-full !whitespace-normal !bg-samrita-charcoal !px-4 !text-base !shadow-samrita-iron')}>
+                  <Utensils size={22} /><span>Find a meal</span><ArrowUpRight size={20} />
+                </Link>
+                <p className="mb-2 mt-4 text-xs text-slate-600">Explore the meal finder. No account needed.</p>
+                <TermsNotice />
+              </div>
+              <div>
+                <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-samrita-teal">Want to make it happen?</p>
+                <Link to={user ? '/dashboard' : '/register'} className={ui('sr-button sr-secondary !min-h-[76px] !w-full !whitespace-normal !border-2 !border-samrita-teal !px-4 !text-sm !shadow-samrita-teal')}>
+                  <Heart size={22} /><span>Be a part of the solution</span><ArrowUpRight size={20} />
+                </Link>
+                <p className="mt-4 text-xs text-slate-600">Share food, open your kitchen, or volunteer to drive.</p>
+              </div>
             </div>
+            <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600"><strong className="font-semibold text-samrita-charcoal">Meal-finder preview:</strong> sample listings only, not live food availability. Confirm with a provider before visiting.</p>
             <div className={ui("sr-region")}>
               <MapPin size={16} />
               Made for {REGION.city}
@@ -128,46 +134,46 @@ export default function Landing() {
             <div>
               <span className={ui("sr-eyebrow")}>ONE CONNECTED JOURNEY</span>
               <h2>
-                Four perspectives.
+                A meal starts with you.
                 <br />
-                One shared purpose.
+                A community makes it happen.
               </h2>
             </div>
             <p>
-              Less coordination for the people giving.
+              Find support first.
               <br />
-              More dignity for the people receiving.
+              Meet the people behind each handoff.
             </p>
           </div>
           <div className={ui("sr-face-grid")}>
             {[
               [
+                Heart,
+                '01 / OUR NEIGHBORS',
+                'A welcoming table.',
+                'Start with dietary preferences and transit directions in our meal-finder preview.',
+                '/consumer',
+              ],
+              [
                 Utensils,
-                "01 / EVENT ORGANIZERS",
+                "02 / EVENT ORGANIZERS",
                 "Plan ahead. Share easily.",
                 "Upload a menu, verify ingredients and allergens, then turn leftovers into trackable batches.",
                 "/register",
               ],
               [
                 Building2,
-                "02 / COMMUNITY CENTERS",
+                "03 / COMMUNITY CENTERS",
                 "A kitchen that fits.",
                 "Register storage, staffing, hours, and capacity. Verify every arrival with a photo.",
                 "/register",
               ],
               [
                 Truck,
-                "03 / DRIVERS & DISPATCH",
+                "04 / DRIVERS & DISPATCH",
                 "Every mile, accounted for.",
                 "Match equipment and capacity. Scan, photograph, and track the food from pickup to arrival.",
                 "/login",
-              ],
-              [
-                Heart,
-                "04 / OUR NEIGHBORS",
-                "Find a welcoming table.",
-                "Explore the consumer concept: dietary preferences, nearby centers, and transit directions.",
-                "/consumer",
               ],
             ].map(([Icon, label, title, body, href]) => {
               const FaceIcon = Icon as typeof Heart;
@@ -188,18 +194,12 @@ export default function Landing() {
           </div>
         </section>
         <section className={ui("sr-bottom-cta")}>
-          <span className={ui("sr-eyebrow")}>FOOD IS A CONNECTION.</span>
-          <h2>Let’s keep it moving.</h2>
-          <Link className={ui("sr-button")} to="/register">
-            Join the community <ArrowRight size={18} />
-          </Link>
+          <span className={ui("sr-eyebrow")}>YOU BELONG AT THE TABLE.</span>
+          <h2>Find a meal. Or help make one.</h2>
+          <div className="mt-7 flex flex-wrap gap-4"><Link className={ui('sr-button !bg-white !text-samrita-charcoal !shadow-samrita-charcoal')} to="/consumer">Find a meal <Utensils size={18} /></Link><Link className={ui('sr-button !border-white !bg-transparent !text-white !shadow-samrita-iron')} to={user ? '/dashboard' : '/register'}>Be a part of the solution <ArrowRight size={18} /></Link></div>
         </section>
       </main>
-      <footer className={ui("sr-footer")}>
-        <Brand light />
-        <span>From surplus to shared possibility.</span>
-        <span>Samrit · {new Date().getFullYear()}</span>
-      </footer>
+      <PublicFooter showResources />
     </div>
   );
 }

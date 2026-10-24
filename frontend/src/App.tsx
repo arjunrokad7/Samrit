@@ -4,6 +4,8 @@ import { AuthProvider, AuthPage } from "./samrit/Auth";
 import Landing from "./samrit/Landing";
 import Workspace from "./samrit/Workspace";
 import Consumer from "./samrit/Consumer";
+import Legal from "./samrit/Legal";
+import ConsumerCheckIn from "./samrit/ConsumerCheckIn";
 import { ui } from "./samrit/design";
 export default function App() {
   return (
@@ -16,6 +18,9 @@ export default function App() {
             <Route path="/login" element={<AuthPage />} />
             <Route path="/register" element={<AuthPage register />} />
             <Route path="/consumer" element={<Consumer />} />
+            <Route path="/consumer/check-in" element={<ConsumerCheckIn />} />
+            <Route path="/terms" element={<Legal />} />
+            <Route path="/regulations" element={<Legal regulations />} />
             <Route path="/dashboard/*" element={<Workspace />} />
             <Route
               path="/admin-dashboard"

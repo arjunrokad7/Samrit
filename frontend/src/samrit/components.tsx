@@ -115,10 +115,12 @@ export function ScanField({
   value,
   onChange,
   label,
+  onScan,
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
+  onScan?: (value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
@@ -137,6 +139,7 @@ export function ScanField({
             onChange(result.getText());
             controls.stop();
             setOpen(false);
+            onScan?.(result.getText());
           }
         },
       )
@@ -152,7 +155,7 @@ export function ScanField({
       cancelled = true;
       stop?.();
     };
-  }, [open, onChange]);
+  }, [open, onChange, onScan]);
   return (
     <div className={ui("sr-scan")}>
       <label>

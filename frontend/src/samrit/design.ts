@@ -206,7 +206,7 @@ const recipes: Record<string, string> = {
     "flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-samrita-teal text-white",
   "sr-spin": "animate-spin",
   "sr-consumer":
-    "mx-auto min-h-screen max-w-[850px] bg-slate-50 [&>main]:mx-auto [&>main]:max-w-[600px] [&>main]:px-5 [&>main]:py-7 md:[&>main]:px-10 [&_h1]:my-5 [&_h1]:text-5xl [&_h1]:leading-tight [&>main>p]:mb-6 [&>main>p]:text-sm [&>main>p]:text-slate-600 [&_.sr-panel]:my-6 [&_.sr-panel-heading_h2]:text-3xl",
+    "min-h-screen bg-slate-50 [&>main]:mx-auto [&>main]:max-w-7xl [&>main]:px-6 [&>main]:py-7 md:[&>main]:px-12 [&_h1]:my-5 [&_h1]:text-5xl md:[&_h1]:text-6xl [&_h1]:leading-tight [&>main>p]:mb-6 [&>main>p]:text-sm [&>main>p]:text-slate-600 [&_.sr-panel-heading_h2]:text-3xl",
   "sr-demo-label":
     "mb-9 rounded-2xl border border-slate-200 bg-white p-3 text-center text-[9px] font-semibold tracking-wider text-samrita-teal",
   "sr-consumer-venue":
