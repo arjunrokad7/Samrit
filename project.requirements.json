@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "project": "Samrit",
+  "runtime": {
+    "node": { "minimum": "22.12.0", "recommendedMajor": 22 },
+    "npm": { "minimumMajor": 10 },
+    "python": { "required": false }
+  },
+  "packages": [
+    {
+      "directory": "backend",
+      "manifest": "backend/package.json",
+      "lockfile": "backend/package-lock.json",
+      "install": ["npm", "ci"]
+    },
+    {
+      "directory": "frontend",
+      "manifest": "frontend/package.json",
+      "lockfile": "frontend/package-lock.json",
+      "install": ["npm", "ci"]
+    }
+  ],
+  "services": [
+    {
+      "name": "PostgreSQL",
+      "minimumMajor": 15,
+      "defaultPort": 5432,
+      "databaseEnvironmentKey": "POSTGRES_DB",
+      "composeService": "postgres"
+    },
+    {
+      "name": "Redis",
+      "recommendedMajor": 7,
+      "defaultPort": 6379,
+      "composeService": "redis"
+    }
+  ],
+  "optional": [
+    {
+      "name": "Docker Engine or Docker Desktop with Compose v2",
+      "purpose": "Run infrastructure or the complete stack without installing database servers manually"
+    },
+    {
+      "name": "Google Chrome or Playwright Chromium",
+      "purpose": "Browser smoke checks only"
+    },
+    {
+      "name": "Gemini credentials and model ID",
+      "purpose": "Menu OCR; manual menu entry works without them"
+    },
+    {
+      "name": "Local Qwen endpoint",
+      "purpose": "Optional private-review classification"
+    }
+  ],
+  "commands": {
+    "setup": "npm run setup",
+    "check": "npm run doctor",
+    "infrastructure": "npm run infra:up",
+    "develop": "npm run dev",
+    "seed": "npm run seed:demo",
+    "build": "npm run build",
+    "test": "npm test",
+    "share": "npm run share"
+  },
+  "defaults": {
+    "country": "US",
+    "city": "New York City",
+    "timeZone": "America/New_York"
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "name": "samrit",
+  "private": true,
+  "scripts": {
+    "dev": "node scripts/dev.cjs",
+    "build": "npm --prefix backend run build && npm --prefix frontend run build",
+    "seed:demo": "node scripts/seed-samrit.cjs",
+    "test:api": "node scripts/test-samrit-api.cjs",
+    "test:ui:smoke": "node scripts/check-ui.cjs",
+    "test": "npm run test:backend && npm run test:frontend && npm run test:handoff",
+    "test:backend": "npm --prefix backend test -- --runInBand",
+    "test:frontend": "npm --prefix frontend run test:run",
+    "test:e2e": "npm --prefix frontend run test:e2e",
+    "test:e2e:realtime": "npm --prefix backend run test:e2e -- --testPathPattern=realtime-events",
+    "setup": "node scripts/setup.cjs",
+    "doctor": "node scripts/doctor.cjs",
+    "share": "node scripts/package-project.cjs",
+    "infra:up": "docker compose up -d postgres redis",
+    "infra:stop": "docker compose stop postgres redis",
+    "dev:backend": "npm --prefix backend run start:dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "test:handoff": "node --test scripts/tests/handoff.test.cjs"
+  },
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=22.12.0",
+    "npm": ">=10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arjunrokad7/Samrit.git"
+  }
+}

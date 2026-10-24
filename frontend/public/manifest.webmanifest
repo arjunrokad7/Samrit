@@ -1,0 +1,18 @@
+{
+  "name": "Samrit Food Recovery",
+  "short_name": "Samrit",
+  "description": "Food recovery and accountable handoffs in New York City",
+  "start_url": "/dashboard",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#244557",
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/samrit-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

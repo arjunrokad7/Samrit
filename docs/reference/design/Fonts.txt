@@ -1,0 +1,2 @@
+Highlighted fonts (heading subheading...): Lilita One
+Regular text font: Telegraf

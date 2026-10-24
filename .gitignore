@@ -1,0 +1,40 @@
+# Dependency directories
+node_modules/
+releases/
+.tools/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.tsbuildinfo
+coverage/
+playwright-report/
+test-results/
+uploads/
+.screenshots/
+
+# Lock files
+yarn.lock
+pnpm-lock.yaml
+
+dist/
+build/
+*.log
+
+# Environment Variables (CRITICAL)
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+
+# Docker volumes (if they were created locally)
+postgres_data/
+
+# IDE settings
+.vscode/
+.idea/
+*.DS_Store
+
+# Ignore database backups
+/backups/

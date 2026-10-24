@@ -1,0 +1,274 @@
+import { io, Socket } from 'socket.io-client';
+
+// WebSocket event types
+export interface DonationCreatedEvent {
+  id: string;
+  name: string;
+  foodType: string;
+  location: {
+    lat: number;
+    lng: number;
+    address: string;
+  };
+  donorName: string;
+  expiryTime: string;
+}
+
+export interface DonationClaimedEvent {
+  donationId: string;
+  claimedBy?: string;
+  status: string;
+}
+
+export interface NotificationEvent {
+  id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  createdAt: string;
+}
+
+export interface VolunteerAssignedEvent {
+  volunteerId: string;
+  donationId: string;
+  donationName: string;
+  donorAddress: string;
+  ngoName: string;
+}
+
+export interface NearExpiryAlertEvent {
+  donationId: string;
+  expiryTime: string;
+}
+
+class SocketService {
+  private socket: Socket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+
+  /**
+   * Initialize socket connection
+   * Only connects if user is logged in
+   */
+  connect(): void {
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+
+    // Only connect if user is authenticated
+    if (!token || !user) {
+      console.log('User not logged in, skipping socket connection');
+      return;
+    }
+
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
+    // Already connected - reuse existing socket
+    if (this.socket?.connected) {
+      return;
+    }
+
+    // Disconnect stale socket if any
+    if (this.socket) {
+      this.socket.disconnect();
+    }
+
+    // Create new socket connection
+    this.socket = io(API_URL, {
+      auth: {
+        token,
+      },
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      reconnectionAttempts: this.maxReconnectAttempts,
+      transports: ['websocket', 'polling'],
+    });
+
+    this.setupEventListeners();
+  }
+
+  /**
+   * Setup socket event listeners
+   */
+  private setupEventListeners(): void {
+    if (!this.socket) return;
+
+    // Connection events
+    this.socket.on('connect', () => {
+      console.log('WebSocket connected:', this.socket?.id);
+      this.reconnectAttempts = 0;
+    });
+
+    this.socket.on('connect_error', (error: unknown) => {
+      console.error('WebSocket connection error:', error);
+    });
+
+    this.socket.on('disconnect', (reason: string) => {
+      console.log('WebSocket disconnected:', reason);
+      if (reason === 'io server disconnect') {
+        // Server disconnected, try to reconnect
+        this.reconnect();
+      }
+    });
+
+    this.socket.on('error', (error: unknown) => {
+      console.error('WebSocket error:', error);
+    });
+  }
+
+  /**
+   * Listen for new donation created events
+   */
+  onDonationCreated(callback: (data: DonationCreatedEvent) => void): () => void {
+    if (!this.socket) {
+      console.warn('Socket not initialized');
+      return () => { };
+    }
+
+    const normalizedCallback = (rawData: Record<string, unknown>) => {
+      const normalized: DonationCreatedEvent = {
+        ...rawData,
+        id: String(rawData?.id || ''),
+        name: String(rawData?.name || 'New Donation'),
+        foodType: String(rawData?.foodType || 'Food'),
+        donorName: String(rawData?.donorName || 'Community Donor'),
+        expiryTime: String(rawData?.expiryTime || new Date().toISOString()),
+        location: (rawData?.location as DonationCreatedEvent['location']) || {
+          lat: Number(rawData?.latitude) || 0,
+          lng: Number(rawData?.longitude) || 0,
+          address: String(rawData?.address || 'Unknown Location'),
+        },
+      };
+
+      callback(normalized);
+    };
+
+    this.socket.on('donation.created', normalizedCallback);
+
+    // Return unsubscribe function
+    return () => {
+      if (this.socket) {
+        this.socket.off('donation.created', normalizedCallback);
+      }
+    };
+  }
+
+  /**
+   * Listen for donation claimed events
+   */
+  onDonationClaimed(callback: (data: DonationClaimedEvent) => void): () => void {
+    if (!this.socket) {
+      console.warn('Socket not initialized');
+      return () => { };
+    }
+
+    const normalizedCallback = (rawData: unknown) => {
+      const dataObj = typeof rawData === 'object' && rawData !== null ? (rawData as Record<string, unknown>) : {};
+      const normalized: DonationClaimedEvent =
+        typeof rawData === 'string'
+          ? { donationId: rawData, status: 'CLAIMED' }
+          : {
+            donationId: String(dataObj?.donationId || dataObj?.id || ''),
+            claimedBy: String(dataObj?.claimedBy || dataObj?.claimedById || ''),
+            status: String(dataObj?.status || 'CLAIMED'),
+          };
+
+      callback(normalized);
+    };
+
+    this.socket.on('donation.claimed', normalizedCallback);
+
+    // Return unsubscribe function
+    return () => {
+      if (this.socket) {
+        this.socket.off('donation.claimed', normalizedCallback);
+      }
+    };
+  }
+
+  /**
+   * Listen for notification events
+   */
+  onNotification(callback: (data: NotificationEvent) => void): () => void {
+    if (!this.socket) {
+      console.warn('Socket not initialized');
+      return () => { };
+    }
+
+    this.socket.on('notification', callback);
+
+    return () => {
+      if (this.socket) {
+        this.socket.off('notification', callback);
+      }
+    };
+  }
+
+  onVolunteerAssigned(callback: (data: VolunteerAssignedEvent) => void): () => void {
+    if (!this.socket) return () => { };
+    this.socket.on('volunteer.assigned', callback);
+    return () => { if (this.socket) this.socket.off('volunteer.assigned', callback); };
+  }
+
+  onNearExpiryAlert(callback: (data: NearExpiryAlertEvent) => void): () => void {
+    if (!this.socket) return () => { };
+    this.socket.on('donation.near_expiry', callback);
+    return () => { if (this.socket) this.socket.off('donation.near_expiry', callback); };
+  }
+
+  /**
+   * Emit volunteer GPS location for a delivery
+   */
+  emitVolunteerLocation(data: { volunteerId: string; donationId: string; lat: number; lng: number }): void {
+    if (!this.socket) return;
+    this.socket.emit('volunteer.shareLocation', data);
+  }
+
+  /**
+   * Listen for real-time volunteer location updates for a specific donation
+   */
+  onVolunteerLocation(
+    donationId: string,
+    callback: (data: { volunteerId: string; donationId: string; lat: number; lng: number; timestamp: string }) => void,
+  ): () => void {
+    if (!this.socket) return () => { };
+    const event = `volunteer.location.${donationId}`;
+    this.socket.on(event, callback);
+    return () => { if (this.socket) this.socket.off(event, callback); };
+  }
+
+  /**
+   * Disconnect socket
+   */
+  disconnect(): void {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+  }
+
+  /**
+   * Attempt to reconnect
+   */
+  private reconnect(): void {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(`Attempting to reconnect... (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+      setTimeout(() => {
+        this.connect();
+      }, 2000);
+    } else {
+      console.error('Max reconnection attempts reached');
+    }
+  }
+
+  /**
+   * Check if socket is currently connected
+   */
+  isConnected(): boolean {
+    return this.socket?.connected || false;
+  }
+}
+
+// Export singleton instance
+export const socketService = new SocketService();
