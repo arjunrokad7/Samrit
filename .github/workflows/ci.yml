@@ -101,6 +101,9 @@ jobs:
         run: npm run test -- --forceExit
         working-directory: backend
 
+      - name: Initialize database schema
+        run: node scripts/db/migrate.cjs
+
       - name: E2E tests
         run: npm run test:e2e -- --forceExit
         working-directory: backend

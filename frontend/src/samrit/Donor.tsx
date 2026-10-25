@@ -398,34 +398,6 @@ export default function Donor({
                 defaultValue="100 Demo Market Street, New York, NY 10003"
               />
             </label>
-            <div className={ui("sr-form-grid")}>
-              <label>
-                Latitude
-                <input
-                  type="number"
-                  step="any"
-                  min="-90"
-                  max="90"
-                  value={coords.lat}
-                  onChange={(e) =>
-                    setCoords({ ...coords, lat: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label>
-                Longitude
-                <input
-                  type="number"
-                  step="any"
-                  min="-180"
-                  max="180"
-                  value={coords.lng}
-                  onChange={(e) =>
-                    setCoords({ ...coords, lng: Number(e.target.value) })
-                  }
-                />
-              </label>
-            </div>
             <button
               className={ui("sr-text-link")}
               type="button"

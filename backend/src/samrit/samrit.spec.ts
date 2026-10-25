@@ -96,7 +96,15 @@ describe('Samrit contracts', () => {
     ).toBe(false);
   });
   it('rejects invalid GPS, zone, and operating hours', () => {
-    const { centerId, ownerId, approved, locationQrCode, ...input } = center;
+    const input = {
+      name: center.name,
+      location: center.location,
+      timeZone: center.timeZone,
+      capabilities: center.capabilities,
+      operatingHours: center.operatingHours,
+      seating: center.seating,
+      staffing: center.staffing,
+    };
     expect(centerSchema.safeParse(input).success).toBe(true);
     expect(
       centerSchema.safeParse({ ...input, timeZone: 'Easternish' }).success,

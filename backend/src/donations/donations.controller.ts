@@ -115,8 +115,17 @@ export class DonationsController {
     const statuses = status
       ? status.split(',').map((s) => s.trim().toUpperCase())
       : undefined;
-    const donations = await this.donationsService.findAll(latitude, longitude, radius, statuses);
-    return donations.map(({ donorTrustScore, ...donation }) => donation);
+    const donations = await this.donationsService.findAll(
+      latitude,
+      longitude,
+      radius,
+      statuses,
+    );
+    return donations.map((record) => {
+      const { donorTrustScore, ...donation } = record;
+      void donorTrustScore; // Private trust score must not appear in public results.
+      return donation;
+    });
   }
 
   @Get('stats/monthly')

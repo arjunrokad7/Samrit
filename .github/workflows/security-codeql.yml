@@ -2,46 +2,62 @@ name: Security - CodeQL Analysis
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   pull_request:
-    branches: [ main ]
+    branches: [main]
   schedule:
-    - cron: '0 6 * * 1'  # Run every Monday at 6 AM UTC
+    - cron: '0 6 * * 1'
 
 jobs:
   analyze:
-    name: Analyze (${{ matrix.language }})
+    name: Analyze (javascript-typescript)
     runs-on: ubuntu-latest
-    timeout-minutes: 360
+    timeout-minutes: 30
     permissions:
       security-events: write
-      packages: read
       actions: read
       contents: read
-
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: javascript-typescript
-            build-mode: none
-            path: frontend
-          - language: javascript-typescript
-            build-mode: none
-            path: backend
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # A single JavaScript/TypeScript database covers frontend, backend and shared.
+      - name: Check code-scanning availability
+        id: scanning
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.request('GET /repos/{owner}/{repo}/code-scanning/alerts', {
+                ...context.repo, per_page: 1
+              });
+              core.setOutput('upload', 'always');
+            } catch (error) {
+              if (![403, 404].includes(error.status)) throw error;
+              core.setOutput('upload', 'never');
+              core.notice('Code-scanning publishing is unavailable. CodeQL analysis will still run and its SARIF report will be saved as an artifact.');
+            }
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: javascript-typescript
+          build-mode: none
           queries: +security-and-quality
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
         with:
-          category: "/language:${{ matrix.language }}"
+          category: /language:javascript-typescript
+          output: codeql-results
+          upload: ${{ steps.scanning.outputs.upload }}
+          upload-database: false
+
+      - name: Save CodeQL security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sarif
+          path: codeql-results/*.sarif
+          retention-days: 14
+          if-no-files-found: warn

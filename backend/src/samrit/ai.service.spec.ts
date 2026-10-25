@@ -61,25 +61,23 @@ describe('shared Gemini gateway', () => {
     ).rejects.toThrow('manual entry');
   });
   it('preserves unknown OCR quantities and handling for human confirmation', async () => {
-    jest
-      .spyOn(global, 'fetch')
-      .mockResolvedValue(
-        response({
-          items: [
-            {
-              name: 'Lentils',
-              ingredients: null,
-              allergens: null,
-              estimatedServings: null,
-              handlingRequirement: 'unknown',
-              quantity: 2,
-              unit: 'bags',
-              sourceReference: 'page 1 line 2',
-              itemType: 'ingredient',
-            },
-          ],
-        }),
-      );
+    jest.spyOn(global, 'fetch').mockResolvedValue(
+      response({
+        items: [
+          {
+            name: 'Lentils',
+            ingredients: null,
+            allergens: null,
+            estimatedServings: null,
+            handlingRequirement: 'unknown',
+            quantity: 2,
+            unit: 'bags',
+            sourceReference: 'page 1 line 2',
+            itemType: 'ingredient',
+          },
+        ],
+      }),
+    );
     const { gateway } = setup();
     const result = await new SamritAI(gateway).menu(
       {

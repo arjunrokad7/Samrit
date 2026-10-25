@@ -143,11 +143,27 @@ describe('AuthService', () => {
   // --- TEST SUITE 3: PROFILE MANAGEMENT (NEW) ---
   describe('central NGO driver access', () => {
     it('rejects public driver registration before creating a user', async () => {
-      await expect(service.register({ email: 'driver@test.com', password: 'Password123!', name: 'Driver', role: 'VOLUNTEER' } as any)).rejects.toThrow('provisioned by the central NGO');
+      await expect(
+        service.register({
+          email: 'driver@test.com',
+          password: 'Password123!',
+          name: 'Driver',
+          role: 'VOLUNTEER',
+        } as any),
+      ).rejects.toThrow('provisioned by the central NGO');
       expect(mockUserRepo.save).not.toHaveBeenCalled();
     });
-    it.each(['transportCapabilities','vehicleType','vehicleNumber','isAvailable'])('rejects self-managed %s', async field => {
-      await expect(service.updateProfile('1', { [field]: field === 'isAvailable' ? true : ['hot'] })).rejects.toThrow('managed by the central NGO');
+    it.each([
+      'transportCapabilities',
+      'vehicleType',
+      'vehicleNumber',
+      'isAvailable',
+    ])('rejects self-managed %s', async (field) => {
+      await expect(
+        service.updateProfile('1', {
+          [field]: field === 'isAvailable' ? true : ['hot'],
+        }),
+      ).rejects.toThrow('managed by the central NGO');
       expect(mockUserRepo.update).not.toHaveBeenCalled();
     });
   });

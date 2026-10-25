@@ -27,7 +27,10 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
-    if (!['DONOR', 'NGO'].includes(registerDto.role)) throw new ForbiddenException('Driver accounts are provisioned by the central NGO.');
+    if (!['DONOR', 'NGO'].includes(registerDto.role))
+      throw new ForbiddenException(
+        'Driver accounts are provisioned by the central NGO.',
+      );
     const existingUser = await this.usersRepository.findOne({
       where: { email: registerDto.email },
     });
@@ -72,7 +75,11 @@ export class AuthService {
       where: { email: loginDto.email },
     });
 
-    if (!user || !user.isActive || !(await bcrypt.compare(loginDto.password, user.password))) {
+    if (
+      !user ||
+      !user.isActive ||
+      !(await bcrypt.compare(loginDto.password, user.password))
+    ) {
       throw new UnauthorizedException('Invalid email or password');
     }
 
@@ -229,11 +236,28 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, updateData: any) {
-    if (['transportCapabilities', 'vehicleType', 'vehicleNumber', 'isAvailable'].some(key => Object.prototype.hasOwnProperty.call(updateData, key))) {
-      throw new ForbiddenException('Driver availability and fleet equipment are managed by the central NGO.');
+    if (
+      [
+        'transportCapabilities',
+        'vehicleType',
+        'vehicleNumber',
+        'isAvailable',
+      ].some((key) => Object.prototype.hasOwnProperty.call(updateData, key))
+    ) {
+      throw new ForbiddenException(
+        'Driver availability and fleet equipment are managed by the central NGO.',
+      );
     }
-    const current = await this.usersRepository.findOne({ where: { id: userId } });
-    if (current?.role === 'VOLUNTEER' && ('latitude' in updateData || 'longitude' in updateData)) throw new ForbiddenException('Use the driver location reporting endpoint.');
+    const current = await this.usersRepository.findOne({
+      where: { id: userId },
+    });
+    if (
+      current?.role === 'VOLUNTEER' &&
+      ('latitude' in updateData || 'longitude' in updateData)
+    )
+      throw new ForbiddenException(
+        'Use the driver location reporting endpoint.',
+      );
     await this.usersRepository.update(userId, updateData);
 
     const user = await this.usersRepository.findOne({

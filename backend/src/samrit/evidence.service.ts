@@ -113,7 +113,7 @@ export class EvidenceService {
         requiresHumanVerification: true,
         mode: 'gemini',
       };
-    } catch (e) {
+    } catch {
       await this.db.query(
         "INSERT INTO food.document_extractions(id,document_id,status,error_code) VALUES($1,$2,'failed','extraction_unavailable')",
         [extractionId, id],
