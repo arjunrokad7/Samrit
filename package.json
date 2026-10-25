@@ -25,7 +25,9 @@
     "db:seed": "node scripts/db/seed-catalog.cjs && node scripts/db/import-nyc.cjs && node scripts/db/seed-statistics.cjs",
     "db:import:nyc": "node scripts/db/import-nyc.cjs --refresh",
     "test:database": "node scripts/db/test-database.cjs",
-    "test:evidence": "node scripts/test-evidence-api.cjs"
+    "test:evidence": "node scripts/test-evidence-api.cjs",
+    "test:complete": "node scripts/test-complete-flow.cjs",
+    "docs:manual": "node scripts/build-user-manual.cjs"
   },
   "version": "0.1.0",
   "engines": {

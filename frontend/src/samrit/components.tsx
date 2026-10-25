@@ -21,7 +21,7 @@ import {
 } from "./api";
 import type { FoodBatch, CenterProfile, DispatchRoute, Location } from "./api";
 import { Sheet } from "./Sheet";
-import type { FleetDriver } from '../../../shared/types/samrit';
+import type { FleetDriver } from "../../../shared/types/samrit";
 export function Empty({ children }: { children: ReactNode }) {
   return (
     <div className={ui("sr-empty")}>
@@ -40,14 +40,22 @@ export function Tag({ value }: { value: string }) {
     </span>
   );
 }
-export function QR({ value, label, caption = "Every handoff scan records device GPS." }: { value: string; label: string; caption?: string }) {
+export function QR({
+  value,
+  label,
+  caption,
+}: {
+  value: string;
+  label: string;
+  caption?: string;
+}) {
   return (
     <div className={ui("sr-qr")}>
       <QRCodeSVG value={value} size={112} level="M" />
       <div>
         <strong>{label}</strong>
         <small>{value}</small>
-        <span>{caption}</span>
+        {caption && <span>{caption}</span>}
       </div>
     </div>
   );
@@ -83,10 +91,7 @@ export function PhotoField({
       {preview && <img src={preview} alt="Selected food evidence" />}
       {open && (
         <Sheet title={label} onClose={() => setOpen(false)}>
-          <p className={ui("mb-5 text-sm text-slate-600")}>
-            Use your camera or choose a clear photo of the food. Device location
-            is recorded when you submit the handoff.
-          </p>
+          <p className="text-xs text-slate-600">GPS required for handoff.</p>
           <label className={ui("sr-photo-field")}>
             <Camera size={30} />
             <strong>Take or choose your food photo</strong>
@@ -104,9 +109,6 @@ export function PhotoField({
               }}
             />
           </label>
-          <p className={ui("text-xs text-slate-600")}>
-            Photos remain attached to the batch's custody record.
-          </p>
         </Sheet>
       )}
     </div>
@@ -182,14 +184,7 @@ export function ScanField({
       </label>
       {open && (
         <Sheet title={label} onClose={() => setOpen(false)}>
-          <p className={ui("mb-4 text-sm text-slate-600")}>
-            Point your camera at the QR code. You can also close this scanner
-            and enter the printed ID.
-          </p>
           <video ref={video} className={ui("sr-camera")} muted playsInline />
-          <p className={ui("mt-4 text-xs text-slate-600")}>
-            GPS is captured when you record the scan.
-          </p>
         </Sheet>
       )}
       {error && (
@@ -225,7 +220,35 @@ export function NetworkMap({
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        {drivers.filter(driver => driver.latitude != null && driver.longitude != null && driver.isActive).map(driver => <CircleMarker key={driver.id} center={[driver.latitude!, driver.longitude!]} radius={7} pathOptions={{ color: '#244557', fillOpacity: .9 }}><Popup><strong>{driver.name}</strong><p>{driver.locationSource === 'admin_base' ? 'Dispatch base, not current GPS' : 'Last reported location'}</p><p>{driver.locationUpdatedAt ? localDate(driver.locationUpdatedAt) : 'Timestamp unavailable'}</p></Popup></CircleMarker>)}
+        {drivers
+          .filter(
+            (driver) =>
+              driver.latitude != null &&
+              driver.longitude != null &&
+              driver.isActive,
+          )
+          .map((driver) => (
+            <CircleMarker
+              key={driver.id}
+              center={[driver.latitude!, driver.longitude!]}
+              radius={7}
+              pathOptions={{ color: "#244557", fillOpacity: 0.9 }}
+            >
+              <Popup>
+                <strong>{driver.name}</strong>
+                <p>
+                  {driver.locationSource === "admin_base"
+                    ? "Dispatch base, not current GPS"
+                    : "Last reported location"}
+                </p>
+                <p>
+                  {driver.locationUpdatedAt
+                    ? localDate(driver.locationUpdatedAt)
+                    : "Timestamp unavailable"}
+                </p>
+              </Popup>
+            </CircleMarker>
+          ))}
         {batches
           .filter((batch) => batch.status !== "delivered")
           .map((batch) => (
@@ -267,7 +290,27 @@ export function NetworkMap({
                 point.location.lng,
               ])}
               pathOptions={{ color: "#376c6f", dashArray: "7 8", weight: 3 }}
-            ><Popup><strong>Route {route.routeId.slice(0, 8)}</strong><p>{drivers.find(driver => driver.id === route.driverId)?.name || 'Assigned driver'}</p><p>{route.vehicleSnapshot ? `${route.vehicleSnapshot.name} / ${route.vehicleSnapshot.registration}` : 'Historical route: no vehicle record'}</p><p>{route.waypoints.filter(point => point.status === 'done').length} / {route.waypoints.length} stops completed</p></Popup></Polyline>
+            >
+              <Popup>
+                <strong>Route {route.routeId.slice(0, 8)}</strong>
+                <p>
+                  {drivers.find((driver) => driver.id === route.driverId)
+                    ?.name || "Assigned driver"}
+                </p>
+                <p>
+                  {route.vehicleSnapshot
+                    ? `${route.vehicleSnapshot.name} / ${route.vehicleSnapshot.registration}`
+                    : "Historical route: no vehicle record"}
+                </p>
+                <p>
+                  {
+                    route.waypoints.filter((point) => point.status === "done")
+                      .length
+                  }{" "}
+                  / {route.waypoints.length} stops completed
+                </p>
+              </Popup>
+            </Polyline>
           ))}
       </MapContainer>
       {offline && (

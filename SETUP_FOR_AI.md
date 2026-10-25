@@ -16,7 +16,7 @@ project.requirements.json and START_HERE.md before making changes.
    Do not stop unrelated services or delete database volumes to resolve a conflict.
 4. Run `npm run doctor -- --services`. It checks installed app packages,
    configuration presence, and service ports without printing secrets.
-5. Run `npm run dev`. In another terminal run `npm run seed:demo` after /health
+5. Run `npm run db:migrate` and `npm run db:seed`, then `npm run dev`. In another terminal run `npm run seed:demo` after /health
    is ready. This creates local demo accounts/data through the API, not by importing
    an original developer's database.
 6. Verify http://localhost:5173 and http://localhost:3000/health. Run `npm run build`
@@ -27,7 +27,7 @@ project.requirements.json and START_HERE.md before making changes.
 
 The current working foundation is React/Vite, NestJS, PostgreSQL, Redis, shared
 TypeScript types, and Zod. Do not migrate it to the draft PRD's alternative stack
-just to install dependencies. Optional Gemini/Qwen services are not required for
+just to install dependencies. Optional Gemini services are not required for
 manual menu entry, demo accounts, or the core custody workflow.
 
 Brand PNGs are already under frontend/public/brand. Lilita One and DM Sans install

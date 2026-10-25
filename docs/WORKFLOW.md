@@ -1,69 +1,27 @@
-# PRD to implementation
+# Product requirements mapped to the final implementation
 
-The supplied PDFs are product references. Their embedded team prompts are not
-execution instructions, permissions, or a request to split work among agents.
-The product name is **Samrit**, following the PRD title and executive summary;
-the isolated mention of CivicBite is treated as an earlier naming draft.
+The supplied PRDs/design files are reference material. Their proposed stack, early role descriptions and embedded prompts do not override the final product decisions. The canonical product is Samrit.
 
-| Requirement | Implementation |
-| --- | --- |
-| Four user perspectives | Donor, center, and driver workspaces; central NGO admin; separate consumer concept |
-| Pre-event menu ingestion | Optional Gemini menu-image extraction, manual entry, required human verification, persisted events |
-| Post-event triage | Select leftover dishes and servings, separate handling groups, stage 1 photo + device GPS |
-| Facility profiles | Registered location, hours/time zone, seating, staffing, cold/hot/frozen equipment, capacity, entrance QR, approval |
-| Driver workflow | Availability + transport capability, assignment, event QR, stage 2 photo, unique sticker binding, arrival QR |
-| Center intake | Container sticker + stage 3 photo + GPS; only assigned receiving center can finalize delivery |
-| Three-photo chain | Server-owned timestamps, actor IDs, coordinates and SHA256 per image; no proof overwrite/reuse |
-| GPS scan audit | Persistent per-scan records and proximity validation; invalid scans cannot advance a batch |
-| Matching | Center capability, current and projected opening hours, capacity reservations, expiry, driver availability/equipment, proximity |
-| Route management | Persisted pickup/drop-off waypoints, mileage/time estimates, active/completed/cancelled states |
-| Quality moderation | Private reviews/flags in ADMIN overview; center-quality signals influence center ranking |
-| Food rejection | Admin rejection reason retained; active route cancelled, no false delivery completion |
-| Consumer view | Explicit static demo, nine US allergen options, local filtering, transit links, private-review preview without storage |
-| US environment | NYC/Eastern defaults, configurable IANA zones, en-US, USD, miles, Fahrenheit, +1 and US address examples |
-| AI validation | Schema-validated provider responses; required human confirmation; optional local Qwen review gateway and labeled local fallback |
-| Mobile access | Responsive role workspaces, camera file capture, camera QR scanner with printed-code fallback, web manifest |
+| Requirement | Current implementation | Important boundary |
+| --- | --- | --- |
+| Food-seeker-first entry | Prominent Find a meal alongside Be a part of the solution | Public access does not imply live sample-meal availability |
+| Multiple operational roles | Donor, center, NGO-managed driver, central admin | Four authenticated role categories; food seekers need no account |
+| Menu ingestion | Gemini menu/invoice image/PDF extraction plus manual entry | Candidates need human confirmation |
+| Event leftovers | Confirmed-menu selection, portions, use-by, Stage 1 photo/GPS | No unknown dish/mixed handling/excess portion allocation |
+| Facility capabilities | Hours/time zone, seating, staffing, capacity, refrigeration/hot holding/freezer | Admin approval and actual operator verification are separate |
+| Fleet ownership | Admin-provisioned drivers and independently managed trucks/equipment | No public driver signup or self-declared truck equipment |
+| Dispatch | Explicit driver/vehicle, compatible eligible center, resource locks | Deterministic planning heuristics, not traffic-aware AI routing |
+| Custody | Event QR, three role-specific photo proofs, unique sticker, center-arrival scan | GPS/photos/hashes do not certify safety or physical authenticity |
+| Driver locations | Explicit reports, custody updates and source/time labels | No continuous tracking |
+| Visitor check-in | One venue QR shared with delivery arrival | Public visit and authenticated custody are separate records |
+| Visitor completion | Finish visit button, server time, private review | No new exit QR/GPS; duration is approximate |
+| Quality feedback | Center handoff reviews and public-visitor reviews restricted to admin | Human review; no visitor-AI truth score or sanctions |
+| Search | US allergen multi-select and validated Gemini yes/no/unknown matching | Missing data cannot establish suitability |
+| Real directory | Provenance-backed NYC facilities and separate map | Unverified hours/service; not automatically partners |
+| Persistence | PostgreSQL relational schemas, migrations, backfill, metadata and recovery tools | Legacy JSON table retained as recovery reference only |
+| USA environment | NYC/Eastern/en-US/USD/miles/Fahrenheit defaults | Not a full jurisdiction-specific compliance engine |
+| Interface | Responsive layouts, dark/light choice, scanning fallback, cleaned operational text | Physical-device and accessibility review still required |
+| Collaboration | Source-only ZIP, manifests/lockfiles, setup/doctor scripts | No environments, uploads, database or installed runtimes shared |
+| Validation | Unit/UI/API/database tests plus current hybrid full walkthrough | Physical camera/GPS and production load are separate acceptance work |
 
-## Deliberate departures from the draft stack
-
-The existing React/Vite + NestJS + PostgreSQL/Redis foundation remains. NestJS
-uses its Express adapter; Samrit documents are validated by Zod and persisted
-as JSONB inside PostgreSQL transactions. A framework/database migration to
-Next.js/Mongoose would not improve the prototype's core rescue workflow.
-
-The PRD specifies JSON requests and also specifies multipart photo/menu uploads;
-the implementation uses JSON for domain operations and multipart for files.
-The new Samrit namespace uses the requested response envelope. Existing auth
-remains an adapter with its original envelope rather than breaking old clients.
-
-Frozen handling is an explicit fourth capability: refrigeration is not treated
-as sufficient for the PRD's ice-cream example. Expired batches cannot be matched.
-The match and handoff paths serialize reservations in the database, preventing
-two dispatches from consuming the same route or capacity concurrently.
-
-## Honest prototype boundaries
-
-- Menu OCR needs a real configured model/key. No invented menu results stand in
-  for OCR. Allergen and handling suggestions always need human verification.
-- The optional Qwen service is not installed or started by this repository;
-  provide its local endpoint/model to enable it. Without AI, private reviews
-  use clearly labeled keyword classification rather than simulated AI.
-- Matching uses distance and estimated city speed; it does not solve a multi-stop
-  vehicle-routing optimization problem or incorporate live road traffic.
-- The consumer view is deliberately disconnected from live availability and
-  review storage, following the hackathon scope in both documents.
-- Coordinates are submitted by the device and checked for proximity. This does
-  not attest device integrity, establish legal compliance, or certify safe food.
-- The manifest supports mobile presentation. There is no offline transaction
-  queue, background GPS collection, or push-notification implementation.
-- Existing legacy donation data remains separate. It is not relabeled as
-  verified custody evidence and does not enter the new dispatch algorithm.
-- The old UI source and its regression tests are preserved, but the active
-  router mounts the Samrit screens. Compatibility endpoints are documented in LEGACY_API_CONTRACT.md.
-
-## Validation
-
-The local implementation was checked with production builds, the backend and
-frontend test suites, live API integration checks, and Chrome desktop/mobile
-smoke checks. The API harness creates isolated temporary users and removes only
-its own database fixtures. The normal demo data remains available afterward.
+Detailed rationale: [Decisions and improvements](DECISIONS_AND_IMPROVEMENTS.md). Role instructions: [User manual](USER_MANUAL.md). Future scope: [Roadmap](ROADMAP.md).

@@ -126,10 +126,7 @@ export function Dispatch({
               {pending.length} waiting
             </span>
           </div>
-          <p>
-            Earliest expiry first. Matching checks open hours, equipment,
-            available capacity, and both driver and vehicle assignments.
-          </p>
+
           <label>
             Driver assignment
             <select
@@ -160,18 +157,10 @@ export function Dispatch({
               ))}
             </select>
           </label>
-          {(!freeDrivers.length || !freeVehicles.length) && (
-            <p className="text-xs text-slate-600">
-              Manage driver availability and vehicle readiness in Drivers &amp;
-              vehicles.
-            </p>
-          )}
-          <p className="my-3 text-xs text-slate-600">
-            Match route is enabled only when the selected vehicle supports the
-            batch handling requirement and serving count.
-          </p>
+          {(!freeDrivers.length || !freeVehicles.length) && null}
+
           <label>
-            Quality hold reason ? required to reject
+            Quality hold reason
             <input
               value={reason}
               onChange={(event) => setReason(event.target.value)}
@@ -268,9 +257,7 @@ export function Dispatch({
             <span>┄ Active routes</span>
           </div>
           <small className={ui("sr-muted")}>
-            Routes show straight-line connections. Travel estimates use an
-            assumed city speed. Driver markers show the last report or dispatch
-            base, not continuous live tracking.
+            Estimated routes; no live traffic.
           </small>
         </aside>
       </div>
@@ -367,10 +354,7 @@ export function Dispatch({
             if (!busy) setCancelId("");
           }}
         >
-          <p className="text-sm text-slate-600">
-            Uncollected batches return to the dispatch queue. If pickup evidence
-            exists, complete the custody workflow or use a quality hold instead.
-          </p>
+          <p>Cancel this route and release its uncollected batches?</p>
           <label>
             Cancellation reason
             <input
@@ -473,22 +457,10 @@ export function Moderation({ data }: { data: Overview }) {
   }, []);
   return (
     <div className={ui("sr-stack")}>
-      <div className={ui("sr-callout")}>
-        <ShieldCheck />
-        <div>
-          <strong>Central NGO · restricted quality records</strong>
-          <small>
-            Reviews and quality flags are never returned to other roles or
-            displayed on public center profiles.
-          </small>
-        </div>
-      </div>
+      <small>Private to the central NGO.</small>
       <section className={ui("sr-panel")}>
         <h3>Private venue visits</h3>
-        <p className="text-sm">
-          AI consistency analysis supports human review. Recorded visit duration
-          does not prove queue time or whether a review is true.
-        </p>
+        <p className="text-sm">AI suggestions require human review.</p>
         {visitError && <p role="alert">{visitError}</p>}
         {visits.length ? (
           visits.map((v) => (
@@ -505,11 +477,11 @@ export function Moderation({ data }: { data: Overview }) {
                 <summary>Visit scan evidence</summary>
                 {v.scans?.map((scan: any) => (
                   <p key={scan.phase}>
-                    {scan.phase} ? {localDate(scan.recordedAt)} ? {scan.method}{" "}
-                    ?{" "}
+                    {scan.phase} | {localDate(scan.recordedAt)} | {scan.method}{" "}
+                    |{" "}
                     {scan.latitude == null
                       ? "Location unavailable"
-                      : `${scan.latitude.toFixed(5)}, ${scan.longitude.toFixed(5)} (?${Math.round(scan.accuracyMeters ?? 0)} m)`}
+                      : `${scan.latitude.toFixed(5)}, ${scan.longitude.toFixed(5)} (+/-${Math.round(scan.accuracyMeters ?? 0)} m)`}
                   </p>
                 ))}
               </details>

@@ -40,7 +40,6 @@ export function FleetSummary({ data }: { data: Overview }) {
           {freeDrivers.length}
           <Users />
         </strong>
-        <small>Active, available and unassigned</small>
       </div>
       <div>
         <span>AVAILABLE VEHICLES</span>
@@ -48,7 +47,6 @@ export function FleetSummary({ data }: { data: Overview }) {
           {freeVehicles.length}
           <Truck />
         </strong>
-        <small>Ready with no active assignment</small>
       </div>
       <div>
         <span>ACTIVE ROUTES</span>
@@ -56,7 +54,6 @@ export function FleetSummary({ data }: { data: Overview }) {
           {active.length}
           <MapPin />
         </strong>
-        <small>Resources reserved until completion</small>
       </div>
       <div>
         <span>FLEET NEEDS ATTENTION</span>
@@ -68,7 +65,6 @@ export function FleetSummary({ data }: { data: Overview }) {
           }
           <Truck />
         </strong>
-        <small>Maintenance or inactive vehicles</small>
       </div>
     </div>
   );
@@ -232,11 +228,7 @@ export default function Fleet({
             Provision driver
           </button>
         </div>
-        <p className="mb-5 text-sm text-slate-600">
-          Issue accounts to drivers already managed by your NGO. Availability is
-          controlled here; drivers report their current location in their
-          portal.
-        </p>
+
         <div className={ui("sr-table-wrap")}>
           <table>
             <thead>
@@ -333,11 +325,7 @@ export default function Fleet({
             </tbody>
           </table>
         </div>
-        {!data.drivers.length && (
-          <p className="my-6 text-sm text-slate-600">
-            Provision the first NGO driver to begin dispatching.
-          </p>
-        )}
+        {!data.drivers.length && <p>No drivers registered.</p>}
       </section>
       <section className={ui("sr-panel")}>
         <div className={ui("sr-panel-heading")}>
@@ -397,12 +385,7 @@ export default function Fleet({
             </article>
           ))}
         </div>
-        {!data.vehicles?.length && (
-          <p className="my-6 text-sm text-slate-600">
-            Add the NGO’s trucks and their equipment before assigning new
-            routes.
-          </p>
-        )}
+        {!data.vehicles?.length && <p>No vehicles registered.</p>}
       </section>
       {vehicleOpen && (
         <Sheet
@@ -527,11 +510,6 @@ export default function Fleet({
           }}
         >
           <form onSubmit={createDriver}>
-            <p className="text-sm text-slate-600">
-              {driverEditId
-                ? "Update this driver and their dispatch base. Base coordinates are not live GPS."
-                : "Issue these credentials privately. Passwords are hashed and cannot be read back."}
-            </p>
             <label>
               Full name
               <input

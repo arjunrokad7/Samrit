@@ -163,10 +163,6 @@ function Pickup({
             <CheckCircle2 size={16} />
             Record arrival scan + GPS
           </button>
-          <p className={ui("sr-note")}>
-            The receiving center completes stage 3. Drivers cannot mark food
-            delivered.
-          </p>
         </>
       )}
     </BatchCard>
@@ -203,10 +199,6 @@ export default function Driver({
         <Truck />
         <div>
           <strong>Your next mile makes a difference.</strong>
-          <small>
-            Your NGO assigns availability, vehicles and routes. Report your
-            location when ready.
-          </small>
         </div>
         <button
           className={ui("sr-button sr-secondary")}
@@ -220,8 +212,7 @@ export default function Driver({
         <h3>My NGO-assigned vehicles</h3>
         <p className="my-3 text-xs text-slate-600">
           Dispatch availability:{" "}
-          {driverProfile?.isAvailable ? "Available" : "Unavailable"}. Equipment
-          and vehicle capacity are maintained by central NGO administration.
+          {driverProfile?.isAvailable ? "Available" : "Unavailable"}.
         </p>
         {data.routes
           .filter((route) => route.status === "active")
@@ -251,10 +242,7 @@ export default function Driver({
             );
           })}
         {!data.routes.some((route) => route.status === "active") && (
-          <p className="text-sm text-slate-600">
-            Your next vehicle will appear here when central dispatch assigns a
-            route.
-          </p>
+          <p>No vehicle assigned.</p>
         )}
       </section>
       <div className={ui("sr-two-col")}>

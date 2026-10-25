@@ -1,3 +1,5 @@
+> Historical design note: this frontend-only paired-QR preview has been replaced. Current visits persist in PostgreSQL, use one shared venue QR, and finish with a button. See [User manual](USER_MANUAL.md#34-already-at-a-place-check-in) and [decision history](DECISIONS_AND_IMPROVEMENTS.md#decision-10-replace-the-paired-visitor-qr-model).
+
 # Recipient visit preview
 
 Route: `/consumer/check-in`, accessible without signing in. No backend submission or persistence is implemented; leaving or refreshing clears the visit.

@@ -51,9 +51,7 @@ export function CenterProfileForm({
       <section className={ui("sr-panel")}>
         <span className={ui("sr-eyebrow")}>A PLACE AT THE TABLE</span>
         <h2>Your center, in detail.</h2>
-        <p>
-          Matching uses your equipment, open hours, and remaining meal capacity.
-        </p>
+
         <form onSubmit={save}>
           <label>
             Center name
@@ -218,23 +216,13 @@ export function CenterProfileForm({
         <h3>Venue check-in QR</h3>
         {center ? (
           <>
-            <QR
-              value={center.locationQrCode}
-              label={center.name}
-              caption="One venue code for deliveries and meal-visitor check-in. Visitor arrival location is optional."
-            />
+            <QR value={center.locationQrCode} label={center.name} />
             <div className={ui("sr-callout")}>
               <CheckCircle2 />
               {center.approved
                 ? "Approved for matching"
                 : "Awaiting central NGO approval"}
             </div>
-            <p>
-              Display this single QR at the entrance. Drivers scan it for
-              deliveries; meal visitors scan it to check in. Visitors finish
-              their visit and leave a private review in the app. No exit QR is
-              needed. Staff still scan container stickers for intake.
-            </p>
           </>
         ) : (
           <Empty>
@@ -359,10 +347,7 @@ export function CenterIntake({
       <aside className={ui("sr-panel sr-fit")}>
         <span className={ui("sr-eyebrow")}>PRIVATE QUALITY FEEDBACK</span>
         <h3>How was the handoff?</h3>
-        <p>
-          Your review goes to central NGO staff. Ratings never appear on public
-          profiles.
-        </p>
+        <p className="text-xs text-slate-600">Private to the central NGO.</p>
         {delivered.length ? (
           <>
             <button
@@ -423,7 +408,7 @@ export function CenterIntake({
             )}
           </>
         ) : (
-          <p>You can review batches after confirming receipt.</p>
+          <p>No completed deliveries to review.</p>
         )}
       </aside>
     </div>

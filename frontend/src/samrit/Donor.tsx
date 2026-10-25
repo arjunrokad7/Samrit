@@ -118,7 +118,7 @@ export default function Donor({
         "Verify every dish, its ingredients, and its allergens first.",
       );
     setBusy(true);
-    const formElement=submit.currentTarget;
+    const formElement = submit.currentTarget;
     const form = new FormData(formElement);
     try {
       await request("/api/events", "POST", {
@@ -131,7 +131,11 @@ export default function Donor({
       });
       await refresh();
       toast.success("Event and verified menu saved.");
-      setDocumentIds([]);setItems([newItem()]);setMenu(null);setSource("Manual entry");formElement.reset();
+      setDocumentIds([]);
+      setItems([newItem()]);
+      setMenu(null);
+      setSource("Manual entry");
+      formElement.reset();
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -187,10 +191,7 @@ export default function Donor({
         <section className={ui("sr-panel")}>
           <span className={ui("sr-eyebrow")}>AFTER THE EVENT</span>
           <h2>Give leftovers a destination.</h2>
-          <p>
-            Choose what remains. Keep different handling requirements in
-            separate batches.
-          </p>
+
           <label>
             Saved event
             <select
@@ -285,11 +286,7 @@ export default function Donor({
                 onChange={setPhoto}
                 label="Stage 1 · Donor food photo"
               />
-              <div className={ui("sr-note")}>
-                <LocateFixed size={17} />
-                Your current device GPS will be recorded. Be at the event
-                location to submit.
-              </div>
+              <div className={ui("sr-note")}>Pickup GPS required.</div>
               <button
                 className={ui("sr-button")}
                 disabled={busy}
@@ -308,10 +305,7 @@ export default function Donor({
         <aside className={ui("sr-panel sr-fit")}>
           <span className={ui("sr-eyebrow")}>THE FIRST HANDOFF</span>
           <h3>Ready for your driver.</h3>
-          <p>
-            Display this event QR at the pickup point. Your assigned driver
-            scans it before photographing the food.
-          </p>
+
           {event && (
             <>
               <QR value={`SAMRIT:EVENT:${event.eventId}`} label={event.name} />
@@ -319,10 +313,6 @@ export default function Donor({
               <small>{localDate(event.scheduledAt)}</small>
             </>
           )}
-          <div className={ui("sr-callout")}>
-            <CheckCircle2 />
-            Allergen verification stays with the batch throughout its journey.
-          </div>
         </aside>
       </div>
     );
@@ -332,10 +322,7 @@ export default function Donor({
         <section className={ui("sr-panel")}>
           <span className={ui("sr-eyebrow")}>BEFORE THE EVENT</span>
           <h2>Good planning. Less waste.</h2>
-          <p>
-            Upload a catering menu or enter it manually. A person verifies the
-            final ingredients, allergens, and handling.
-          </p>
+
           <label>
             Document type
             <select
@@ -347,9 +334,8 @@ export default function Donor({
             </select>
           </label>
           <p className="text-xs">
-            Images and PDFs up to 5 MB are stored privately and sent to Gemini.
-            Confirm what was actually served; invoice ingredients alone do not
-            confirm a dish.
+            JPEG, PNG, WebP or PDF; up to 5 MB. Sent to Gemini. Verify
+            ingredients, allergens and handling.
           </p>
           <div className={ui("sr-menu-upload")}>
             <Camera />
@@ -370,8 +356,7 @@ export default function Donor({
           </div>
           {!data.config.aiConfigured && (
             <div className={ui("sr-note")}>
-              AI vision awaits provider configuration. Manual menu entry is
-              ready below.
+              AI unavailable. Enter dishes manually.
             </div>
           )}
           <form onSubmit={saveEvent}>
@@ -546,8 +531,8 @@ export default function Donor({
                       edit(index, { verified: e.target.checked })
                     }
                   />
-                  I confirm this dish was provided and checked its ingredients, allergens, servings, and
-                  handling.
+                  I confirm this dish was provided and checked its ingredients,
+                  allergens, servings, and handling.
                 </label>
               </div>
             ))}

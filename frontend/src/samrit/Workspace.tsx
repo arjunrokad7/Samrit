@@ -90,7 +90,10 @@ const titles: Record<string, [string, string]> = {
     "The right food. The right destination.",
     "Match capacity, equipment, and time before dispatch.",
   ],
-  fleet: ["The people and vehicles behind every meal.", "Manage your NGO drivers, fleet equipment and availability."],
+  fleet: [
+    "The people and vehicles behind every meal.",
+    "Manage your NGO drivers, fleet equipment and availability.",
+  ],
   centers: [
     "A network of welcoming tables.",
     "Review and approve distribution facilities.",
@@ -139,7 +142,7 @@ export default function Workspace() {
   if (!user) return <Navigate to="/login" replace />;
   const navigation = nav[user.role];
   const current = navigation.some((item) => item[0] === tab) ? tab : "overview";
-  const [title, subtitle] = titles[current];
+  const [title] = titles[current];
   const go = (view: string) => {
     setParams({ view });
     setMobile(false);
@@ -199,7 +202,7 @@ export default function Workspace() {
           </div>
           <Link to="/consumer">
             <ArrowUpRight size={17} />
-            Consumer concept
+            Find a meal
           </Link>
           <button onClick={signOut}>
             <LogOut size={17} />
@@ -242,7 +245,6 @@ export default function Workspace() {
                 }).format(new Date())}
               </span>
               <h1>{title}</h1>
-              <p>{subtitle}</p>
             </div>
             <button
               className={ui("sr-button sr-secondary sr-small")}
@@ -277,7 +279,9 @@ export default function Workspace() {
             </div>
           ) : (
             <>
-              {current === "fleet" && user.role === "ADMIN" && <Fleet data={data} refresh={refresh} />}
+              {current === "fleet" && user.role === "ADMIN" && (
+                <Fleet data={data} refresh={refresh} />
+              )}
               {current === "overview" && (
                 <>
                   {user.role === "ADMIN" && <FleetSummary data={data} />}
@@ -288,7 +292,6 @@ export default function Workspace() {
                         {data.batches.length}
                         <Package />
                       </strong>
-                      <small>In your recovery network</small>
                     </div>
                     <div>
                       <span>SERVINGS DELIVERED</span>
@@ -299,7 +302,6 @@ export default function Workspace() {
                         )}
                         <Heart />
                       </strong>
-                      <small>Confirmed by receiving centers</small>
                     </div>
                     <div>
                       <span>ACTIVE HANDOFFS</span>
@@ -307,7 +309,6 @@ export default function Workspace() {
                         {active.length}
                         <Truck />
                       </strong>
-                      <small>Matched or on the road</small>
                     </div>
                     <div>
                       <span>CUSTODY COMPLETE</span>
@@ -319,7 +320,6 @@ export default function Workspace() {
                         }
                         <ShieldCheck />
                       </strong>
-                      <small>All three photos recorded</small>
                     </div>
                   </div>
                   <div className={ui("sr-two-col sr-overview-cols")}>
@@ -360,11 +360,7 @@ export default function Workspace() {
                               ? "Connect the dots. Keep food moving."
                               : "A simple route. A meaningful difference."}
                       </h2>
-                      <p>
-                        {user.role === "DONOR"
-                          ? "Start with a menu. We’ll help you turn the leftovers into a traceable food rescue."
-                          : "Your workspace keeps each handoff connected to the people, places, and proof behind it."}
-                      </p>
+
                       <button
                         className={ui("sr-button")}
                         onClick={() => go(next)}

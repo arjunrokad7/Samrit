@@ -7,7 +7,7 @@ import api from "../services/api";
 import { errorMessage, REGION } from "./api";
 import type { SessionUser } from "./api";
 import { AuthContext, useSession } from "./session";
-import { useTheme } from './Theme';
+import { useTheme } from "./Theme";
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(() => !!localStorage.getItem("token"));
@@ -50,7 +50,11 @@ export function Brand({ light = false }: { light?: boolean }) {
   return (
     <Link to="/" className={ui("sr-brand")} aria-label="Samrit home">
       <img
-        src={light || theme === 'dark' ? "/brand/samrit-light.png" : "/brand/samrit-dark.png"}
+        src={
+          light || theme === "dark"
+            ? "/brand/samrit-light.png"
+            : "/brand/samrit-dark.png"
+        }
         alt="Samrit"
         draggable={false}
       />
@@ -98,10 +102,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
         </p>
         <div className={ui("sr-auth-proof")}>
           <ShieldCheck />
-          <div>
-            Every handoff has a story.
-            <small>Three photos. GPS records. One traceable batch.</small>
-          </div>
+          <div>Every handoff has a story.</div>
         </div>
         <span className={ui("sr-muted")}>
           Serving {REGION.city} · United States
@@ -113,13 +114,9 @@ export function AuthPage({ register = false }: { register?: boolean }) {
         </Link>
         <div className={ui("sr-auth-form")}>
           <span className={ui("sr-eyebrow")}>YOUR NEXT GOOD THING</span>
-          {register && <p className="mb-4 text-xs text-slate-600">Driver access is issued by your central NGO. If you have credentials, sign in.</p>}
+          {register && null}
           <h2>{register ? "Join the rescue." : "Welcome back."}</h2>
-          <p>
-            {register
-              ? "Choose how you’ll help food reach your community."
-              : "Sign in to your food recovery workspace."}
-          </p>
+
           <form onSubmit={submit}>
             {register && (
               <>
@@ -187,12 +184,6 @@ export function AuthPage({ register = false }: { register?: boolean }) {
               <ArrowUpRight size={14} />
             </Link>
           </p>
-          <div className={ui("sr-note")}>
-            Hackathon accounts: donor@example.com, ngo@example.com
-            <br />
-            Password: <strong>Demo123!</strong>
-            <br />Drivers use the credentials issued by their central NGO.
-          </div>
         </div>
       </main>
     </div>

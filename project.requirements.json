@@ -2,22 +2,35 @@
   "schemaVersion": 1,
   "project": "Samrit",
   "runtime": {
-    "node": { "minimum": "22.12.0", "recommendedMajor": 22 },
-    "npm": { "minimumMajor": 10 },
-    "python": { "required": false }
+    "node": {
+      "minimum": "22.12.0",
+      "recommendedMajor": 22
+    },
+    "npm": {
+      "minimumMajor": 10
+    },
+    "python": {
+      "required": false
+    }
   },
   "packages": [
     {
       "directory": "backend",
       "manifest": "backend/package.json",
       "lockfile": "backend/package-lock.json",
-      "install": ["npm", "ci"]
+      "install": [
+        "npm",
+        "ci"
+      ]
     },
     {
       "directory": "frontend",
       "manifest": "frontend/package.json",
       "lockfile": "frontend/package-lock.json",
-      "install": ["npm", "ci"]
+      "install": [
+        "npm",
+        "ci"
+      ]
     }
   ],
   "services": [
@@ -46,11 +59,7 @@
     },
     {
       "name": "Gemini credentials and model ID",
-      "purpose": "Menu OCR; manual menu entry works without them"
-    },
-    {
-      "name": "Local Qwen endpoint",
-      "purpose": "Optional private-review classification"
+      "purpose": "Menu/invoice OCR, natural-language meal filtering, and private review analysis; manual entry and manual review remain available"
     }
   ],
   "commands": {
@@ -61,7 +70,11 @@
     "seed": "npm run seed:demo",
     "build": "npm run build",
     "test": "npm test",
-    "share": "npm run share"
+    "share": "npm run share",
+    "migrate": "npm run db:migrate",
+    "seedDirectory": "npm run db:seed",
+    "completeTest": "npm run test:complete",
+    "completeTestWithAI": "npm run test:complete -- --with-ai"
   },
   "defaults": {
     "country": "US",

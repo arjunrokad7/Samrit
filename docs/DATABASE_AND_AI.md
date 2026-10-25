@@ -29,11 +29,11 @@ Required backend settings remain `DATABASE_HOST`, `DATABASE_PORT`, `POSTGRES_USE
 | `food` | Donor events, confirmed menu items, ingredients/allergens, leftover batches/items, meal offers, source documents and extraction candidates |
 | `logistics` | Vehicles, equipment, capabilities, routes, ordered stops and batch assignments |
 | `evidence` | Custody photos, scans and timestamped driver-location reports |
-| `feedback` | Venue QR pairs, anonymous visits, entry/exit scans, private reviews and separate AI analyses |
+| `feedback` | Shared venue QR lookup, anonymous visits, arrival scans, completion times, private reviews and separate AI analyses |
 | `app` | Domain ID registry, API projections and validated AI job results |
 | `audit` | Source records, import runs, dated organizational statistics and change events |
 
-UUID primary keys and foreign keys connect domain records. Child join tables have composite keys. Constraints validate status, temperatures/handling, GPS ranges, nonnegative quantities, required delivery evidence, same-event batch items, cumulative leftover portions, same-venue entry/exit, and one active route per driver/vehicle. Indexed ownership, status, expiry, coordinates and evidence-time fields support current workflows. Coordinates use PostgreSQL latitude/longitude columns; PostGIS is not required by these migrations.
+UUID primary keys and foreign keys connect domain records. Child join tables have composite keys. Constraints validate status, temperatures/handling, GPS ranges, nonnegative quantities, required delivery evidence, same-event batch items, cumulative leftover portions, same-venue historical scan relationships and visit-completion fields, and one active route per driver/vehicle. Indexed ownership, status, expiry, coordinates and evidence-time fields support current workflows. Coordinates use PostgreSQL latitude/longitude columns; PostGIS is not required by these migrations.
 
 ```mermaid
 erDiagram
@@ -112,4 +112,4 @@ npm run test:ui:smoke
 
 ## Single QR update
 
-The center now displays one shared venue check-in QR (`SAMRIT:CENTER:?`) for driver deliveries and visitor arrival. The visitor app records one arrival scan. Visitors press **Finish visit and leave a review** to set a server-recorded completion time and unlock feedback. There is no exit QR or exit GPS capture. The elapsed time is approximate time until pressing Finish; it is not a verified departure or queue duration. Historical exit evidence remains preserved for old visits. This replaces the paired entry/exit instructions above.
+The center now displays one shared venue check-in QR (`SAMRIT:CENTER:<center-id>`) for driver deliveries and visitor arrival. The visitor app records one arrival scan. Visitors press **Finish visit and leave a review** to set a server-recorded completion time and unlock feedback. There is no exit QR or exit GPS capture. The elapsed time is approximate time until pressing Finish; it is not a verified departure or queue duration. Historical exit evidence remains preserved for old visits. The earlier paired-QR behavior is historical only.

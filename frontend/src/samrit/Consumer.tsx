@@ -123,14 +123,14 @@ export default function Consumer() {
       </nav>
       <main>
         <div className={ui("sr-demo-label")}>
-          CONSUMER CONCEPT · FICTIONAL LOCATIONS · NO LIVE AVAILABILITY
+          DEMO MEALS · FICTIONAL LOCATIONS · NO LIVE AVAILABILITY
         </div>
         <span className={ui("sr-eyebrow")}>THERE’S A PLACE FOR YOU HERE</span>
         <h1>
           A good meal.
           <br />A warm welcome.
         </h1>
-        <p>Explore what a dignified community meal finder could look like.</p>
+
         <TermsNotice className="mb-6 mt-3" />
         <h2 className="mb-6 mt-10 text-3xl md:text-4xl">
           Find a place that works for you.
@@ -189,14 +189,10 @@ export default function Consumer() {
               )}
             </div>
             <p className="mb-3 text-[11px] text-slate-600">
-              Smart search sends this note and sample meal descriptions to
-              Gemini. Please leave out names or personal medical details.
+              Sent to Gemini. Leave out names and medical details.
             </p>
             <small>
-              Selected allergens always exclude matching dishes. Gemini uses
-              listed descriptions, serving temperatures and dietary tags;
-              missing information is not treated as a match. Confirm ingredients
-              and cross-contact with center staff.
+              Confirm ingredients and cross-contact with center staff.
             </small>
             {busy && (
               <p role="status" className="mt-3 text-xs text-samrita-teal">
@@ -225,9 +221,8 @@ export default function Consumer() {
         <section className="my-8">
           <h2 className="text-3xl">NYC food assistance directory</h2>
           <p className="my-3 text-sm">
-            Public NYC listings. Contact providers to confirm hours, eligibility
-            and availability. These are not verified Samrit partners. Meal
-            preference filters above apply only to listed demo meals.
+            Public listings; not verified partners. Confirm hours and
+            availability. Meal filters apply to demo meals only.
           </p>
           <details>
             <summary className="cursor-pointer font-semibold">
@@ -321,7 +316,7 @@ export default function Consumer() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Preview transit directions <MapPin size={15} />
+                Transit directions <MapPin size={15} />
               </a>
             </article>
           ))}
@@ -338,19 +333,13 @@ export default function Consumer() {
         )}
         <section className="my-8 rounded-2xl bg-samrita-charcoal p-6 text-white shadow-stacked shadow-samrita-iron">
           <h2 className="text-3xl">Already at a place?</h2>
-          <p className="my-4 text-sm">
-            Scan the venue check-in QR when you arrive. Finish your visit in the app, with no exit QR, and share a private,
-            anonymous review.
-          </p>
+
           <Link
             to="/consumer/check-in"
             className={ui("sr-button !whitespace-normal")}
           >
             Already at a place? Check in
           </Link>
-          <p className="mt-4 text-xs text-white/80">
-            Preview workflow only. Nothing is sent to a venue or NGO.
-          </p>
         </section>
       </main>
       <PublicFooter />

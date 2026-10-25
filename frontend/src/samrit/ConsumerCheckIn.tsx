@@ -122,27 +122,18 @@ export default function ConsumerCheckIn() {
       <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
         <span className={ui("sr-eyebrow")}>YOUR VISIT, YOUR VOICE</span>
         <h1 className="mt-4 text-4xl">A warm welcome starts here.</h1>
-        <p className="my-5 text-sm leading-relaxed">
-          Scan the venue's check-in QR when you arrive. After your meal or
-          visit, tap Finish visit and leave a review. You can review your visit
-          even if you did not receive food. No exit QR is needed.
-        </p>
+
         <TermsNotice />
         <aside className="my-6 rounded-2xl border border-samrita-teal/30 bg-white p-5 text-sm">
-          Your check-in and review are saved privately for the central NGO.
-          Arrival location is optional; no exit location is collected. Precise
-          times and location can identify a visit without a name. Gemini
-          receives review and visit evidence for consistency analysis. Demo
-          venues are fictional. Keep this page open until you finish your visit.
+          Private to the central NGO. Arrival GPS is optional; no exit GPS.
+          Visit timing is approximate. Gemini receives your review and visit
+          evidence. Precise times and location may identify a visit. Keep this
+          page open until you finish.
         </aside>
         <section className={ui("sr-panel")}>
           <h2 className="text-2xl">1. Scan the venue check-in QR</h2>
           {!visit ? (
             <>
-              <p className="mt-3 text-sm">
-                Use the same venue QR displayed for meal visitors and delivery
-                drivers.
-              </p>
               <ScanField
                 label="Venue check-in QR code"
                 value={code}
@@ -156,21 +147,6 @@ export default function ConsumerCheckIn() {
               >
                 Check in
               </button>
-              <details className="mt-4 text-xs">
-                <summary className="cursor-pointer text-samrita-teal">
-                  Try a fictional demo visit
-                </summary>
-                <p className="my-3">
-                  Demo check-in: samrit:visit:east-village:entry
-                </p>
-                <button
-                  className={ui("sr-text-link")}
-                  disabled={busy}
-                  onClick={() => setCode("samrit:visit:east-village:entry")}
-                >
-                  Fill demo check-in code
-                </button>
-              </details>
             </>
           ) : (
             <div role="status" className="mt-3 text-sm">
@@ -184,7 +160,7 @@ export default function ConsumerCheckIn() {
               </p>
               <p>
                 {visit.location
-                  ? `Location accuracy: �${Math.round(visit.location.accuracyMeters)} m.`
+                  ? `Location accuracy: +/-${Math.round(visit.location.accuracyMeters)} m.`
                   : "Location unavailable; this visit can still be reviewed."}
               </p>
             </div>
@@ -195,10 +171,6 @@ export default function ConsumerCheckIn() {
             <h2 className="text-2xl">2. After your visit</h2>
             {!finishedAt ? (
               <>
-                <p className="my-4 text-sm">
-                  Finished your meal or leaving without food? Finish your visit
-                  to open your private review.
-                </p>
                 <button
                   className={ui("sr-button !whitespace-normal")}
                   disabled={busy}
@@ -279,7 +251,7 @@ export default function ConsumerCheckIn() {
         )}
         {busy && (
           <p role="status" className="my-4 text-sm">
-            Saving your visit�
+            Saving your visit...
           </p>
         )}
         {error && (
