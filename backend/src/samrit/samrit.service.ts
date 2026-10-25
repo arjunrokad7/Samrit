@@ -17,6 +17,7 @@ import { SamritRecord } from './samrit.entity';
 import { User, UserRole } from '../auth/entities/user.entity';
 import { SamritAI } from './ai.service';
 import { RelationalStore } from '../database/relational-store';
+import { batchHandlingRequirements } from '../../../shared/types/samrit';
 import type {
   FoodBatch,
   CenterProfile,
@@ -58,12 +59,12 @@ export function isOpen(center: CenterProfile, date = new Date()) {
     : current >= open || current < close;
 }
 export function canHandle(center: CenterProfile, batch: FoodBatch) {
-  return (
-    batch.handlingRequirement === 'shelf_stable' ||
-    (batch.handlingRequirement === 'hot' && center.capabilities.hotHolding) ||
-    (batch.handlingRequirement === 'refrigerated' &&
-      center.capabilities.refrigeration) ||
-    (batch.handlingRequirement === 'frozen' && center.capabilities.freezer)
+  return batchHandlingRequirements(batch).every(
+    (handling) =>
+      handling === 'shelf_stable' ||
+      (handling === 'hot' && center.capabilities.hotHolding) ||
+      (handling === 'refrigerated' && center.capabilities.refrigeration) ||
+      (handling === 'frozen' && center.capabilities.freezer),
   );
 }
 export const servings = (batch: FoodBatch) =>
@@ -109,6 +110,18 @@ export class SamritService {
     payload: any,
     manager?: EntityManager,
   ) {
+    if (
+      ['photo', 'scan', 'driver_location'].includes(kind) &&
+      !payload.locationSource
+    )
+      payload = {
+        ...payload,
+        locationSource: this.demoLocationMode
+          ? 'simulated'
+          : payload.source === 'admin_base'
+            ? 'operator_supplied'
+            : 'device',
+      };
     if (!manager) return this.tx((m) => this.store.put(kind, id, payload, m));
     return this.store.put(kind, id, payload, manager);
   }
@@ -120,6 +133,7 @@ export class SamritService {
   configData() {
     return {
       name: 'Samrit',
+      demoLocationMode: this.demoLocationMode,
       country: 'US',
       locale: this.config.get('APP_LOCALE') || 'en-US',
       timeZone: this.config.get('APP_TIMEZONE') || 'America/New_York',
@@ -205,7 +219,10 @@ export class SamritService {
         return {
           ...user,
           locationUpdatedAt: location?.timestamp,
-          locationSource: location?.source,
+          locationSource:
+            location?.locationSource === 'simulated'
+              ? 'simulated'
+              : location?.source,
         };
       }),
       vehicles: vehicles.filter(
@@ -490,11 +507,15 @@ export class SamritService {
     return { photoId: id, proof };
   }
   private nearby(gps: { lat: number; lng: number }, target: Location) {
+    if (this.demoLocationMode) return;
     const maximum = Number(this.config.get('QR_MAX_DISTANCE_METERS') || 250);
     if (distanceMiles(gps, target) * 1609.344 > maximum)
       throw new BadRequestException(
         `Move within ${maximum} meters of the registered location to record this handoff.`,
       );
+  }
+  private get demoLocationMode() {
+    return this.config.get('DEMO_LOCATION_MODE') === 'true';
   }
   async batch(input: any, actor: Actor) {
     this.require(actor, ['DONOR']);
@@ -512,13 +533,21 @@ export class SamritService {
         );
       if (Date.parse(input.expiresAt) <= Date.now())
         throw new BadRequestException('Use a future expiration time.');
+      const requirements = [
+        ...new Set<FoodBatch['handlingRequirement']>(
+          input.items.map((item) => item.handlingRequirement),
+        ),
+      ];
+      const selectedHandling = input.handlingRequirements || [
+        input.handlingRequirement,
+      ];
       if (
-        input.items.some(
-          (item) => item.handlingRequirement !== input.handlingRequirement,
-        )
+        !selectedHandling.includes(input.handlingRequirement) ||
+        new Set(selectedHandling).size !== requirements.length ||
+        !requirements.every((value) => selectedHandling.includes(value))
       )
         throw new BadRequestException(
-          'Split food requiring different handling into separate batches.',
+          'Select every handling requirement used by the chosen dishes, without extra handling types.',
         );
       const previous = (await this.all<FoodBatch>('batch', manager)).filter(
         (b) => b.donorEventId === event.eventId,
@@ -567,6 +596,7 @@ export class SamritService {
         items: input.items,
         metadata: input.metadata || {},
         handlingRequirement: input.handlingRequirement,
+        handlingRequirements: requirements,
         expiresAt: input.expiresAt,
         createdAt: new Date().toISOString(),
         status: 'pending',
@@ -586,6 +616,7 @@ export class SamritService {
   }
   private proofOnly(photo: Proof): Proof {
     return {
+      locationSource: photo.locationSource || 'unspecified',
       url: photo.url,
       timestamp: photo.timestamp,
       lat: photo.lat,
@@ -599,6 +630,7 @@ export class SamritService {
     actor: Actor,
   ) {
     this.require(actor, ['ADMIN']);
+    const routeDistance = this.demoLocationMode ? () => 0 : distanceMiles;
     return this.tx(async (manager) => {
       const batch = await this.get<FoodBatch>('batch', input.batchId, manager);
       if (batch.status !== 'pending')
@@ -618,7 +650,7 @@ export class SamritService {
           )
           .reduce((sum, other) => sum + servings(other), 0);
         const minutes = Math.ceil(
-          (distanceMiles(batch.location, center.location) / 12) * 60 + 15,
+          (routeDistance(batch.location, center.location) / 12) * 60 + 15,
         );
         return (
           center.approved &&
@@ -631,7 +663,7 @@ export class SamritService {
       });
       // Private quality reports influence ranking; never expose ratings in center listings.
       const score = (center: CenterProfile) =>
-        distanceMiles(batch.location, center.location) +
+        routeDistance(batch.location, center.location) +
         reviews.filter(
           (review) =>
             review.targetId === center.centerId &&
@@ -663,28 +695,30 @@ export class SamritService {
         );
       if (
         vehicle.capacityServings < servings(batch) ||
-        !vehicle.capabilities.includes(batch.handlingRequirement)
+        !batchHandlingRequirements(batch).every((value) =>
+          vehicle.capabilities.includes(value),
+        )
       )
         throw new BadRequestException(
           'The selected vehicle lacks the required equipment or serving capacity.',
         );
       const available = drivers.filter(
         (driver) =>
-          driver.latitude != null &&
-          driver.longitude != null &&
+          (this.demoLocationMode ||
+            (driver.latitude != null && driver.longitude != null)) &&
           !activeRoutes.some((route) => route.driverId === driver.id) &&
           driver.id === input.driverId,
       );
       available.sort(
         (a, b) =>
-          distanceMiles(
+          routeDistance(
             {
               lat: a.latitude ?? batch.location.lat,
               lng: a.longitude ?? batch.location.lng,
             },
             batch.location,
           ) -
-          distanceMiles(
+          routeDistance(
             {
               lat: b.latitude ?? batch.location.lat,
               lng: b.longitude ?? batch.location.lng,
@@ -700,10 +734,10 @@ export class SamritService {
         .flatMap((center) =>
           available.map((driver) => {
             const distance =
-              distanceMiles(
+              routeDistance(
                 { lat: driver.latitude, lng: driver.longitude },
                 batch.location,
-              ) + distanceMiles(batch.location, center.location);
+              ) + routeDistance(batch.location, center.location);
             return {
               center,
               driver,
@@ -711,7 +745,7 @@ export class SamritService {
               minutes: Math.ceil((distance / 12) * 60 + 15),
               score:
                 score(center) +
-                distanceMiles(
+                routeDistance(
                   { lat: driver.latitude, lng: driver.longitude },
                   batch.location,
                 ),
@@ -736,6 +770,9 @@ export class SamritService {
       batch.driverId = driver.id;
       batch.status = 'matched';
       const route: DispatchRoute = {
+        metadata: {
+          locationMode: this.demoLocationMode ? 'simulated' : 'standard',
+        },
         routeId: randomUUID(),
         driverId: batch.driverId,
         vehicleId: vehicle.vehicleId,
@@ -772,8 +809,9 @@ export class SamritService {
         batch,
         route,
         centerId: center.centerId,
-        estimate:
-          'Straight-line distance and assumed city speed; not live traffic routing.',
+        estimate: this.demoLocationMode
+          ? 'Demo route: distance is simulated and GPS proximity is not verified.'
+          : 'Straight-line distance and assumed city speed; not live traffic routing.',
       };
     });
   }

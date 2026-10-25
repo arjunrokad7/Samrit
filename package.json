@@ -7,6 +7,8 @@
     "seed:demo": "node scripts/seed-samrit.cjs",
     "test:api": "node scripts/test-samrit-api.cjs",
     "test:ui:smoke": "node scripts/check-ui.cjs",
+    "test:voice:live": "node scripts/test-voice-assistant.cjs",
+    "test:voice:ui": "node scripts/check-voice-ui.cjs",
     "test": "npm run test:backend && npm run test:frontend && npm run test:handoff",
     "test:backend": "npm --prefix backend test -- --runInBand",
     "test:frontend": "npm --prefix frontend run test:run",

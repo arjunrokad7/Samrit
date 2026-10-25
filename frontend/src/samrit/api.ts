@@ -1,4 +1,5 @@
 import api from "../services/api";
+import { DEMO_LOCATION_MODE, demoCoordinates } from "./location";
 import type {
   FoodBatch,
   CenterProfile,
@@ -19,7 +20,13 @@ export type {
   Handling,
   Location,
 } from "../../../shared/types/samrit";
-export { ALLERGENS } from "../../../shared/types/samrit";
+export {
+  ALLERGENS,
+  batchHandlingRequirements,
+} from "../../../shared/types/samrit";
+import { batchHandlingRequirements } from "../../../shared/types/samrit";
+export const batchHandlingLabel = (batch: FoodBatch) =>
+  batchHandlingRequirements(batch).map(handlingLabel).join(" + ");
 export const REGION = {
   city: import.meta.env.VITE_APP_CITY || "New York City",
   timeZone: import.meta.env.VITE_APP_TIMEZONE || "America/New_York",
@@ -102,6 +109,7 @@ export function mediaUrl(path: string) {
   ).toString();
 }
 export function gps(): Promise<{ lat: number; lng: number }> {
+  if (DEMO_LOCATION_MODE) return Promise.resolve(demoCoordinates());
   return new Promise((resolve, reject) => {
     if (!navigator.geolocation)
       return reject(

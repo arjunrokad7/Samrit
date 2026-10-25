@@ -15,6 +15,7 @@ const args = new Set(process.argv.slice(2));
 if ([...args].some((a) => !["--with-ai", "--headed"].includes(a)))
   throw Error("Usage: npm run test:complete -- [--with-ai] [--headed]");
 const withAI = args.has("--with-ai");
+const demoLocations = process.env.DEMO_LOCATION_MODE === "true";
 const run = randomUUID().slice(0, 8);
 const base = process.env.E2E_BASE_URL || "http://localhost:5173";
 if (!["localhost", "127.0.0.1"].includes(new URL(base).hostname))
@@ -235,13 +236,23 @@ async function main() {
     const context = await browser.newContext({
       viewport: { width: 1440, height: 1000 },
       colorScheme: "light",
-      geolocation: {
-        latitude: destination.lat,
-        longitude: destination.lng,
-        accuracy: 10,
-      },
-      permissions: ["geolocation"],
+      ...(demoLocations
+        ? {}
+        : {
+            geolocation: {
+              latitude: destination.lat,
+              longitude: destination.lng,
+              accuracy: 10,
+            },
+            permissions: ["geolocation"],
+          }),
     });
+    if (demoLocations)
+      await context.addInitScript(() => {
+        navigator.geolocation.getCurrentPosition = () => {
+          throw Error("Unexpected device GPS in demo mode");
+        };
+      });
     page = await context.newPage();
     page.setDefaultTimeout(120000);
     await page.route("**/api/consumer/visits/**", async (route) => {
@@ -407,7 +418,7 @@ async function main() {
       const pdf = await documentPage.pdf();
       await fs.writeFile(path.join(output, "sample-menu.pdf"), pdf);
       await documentPage.setContent(
-        '<h1>FICTIONAL TEST INVOICE</h1><p>Invoice TEST-001. Supplier: Test Kitchen. Customer: Test Event. Not valid for payment.</p><table><tr><th>Item</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr><tr><td>Hot vegetable soup</td><td>30 servings</td><td>$4.00 USD</td><td>$120.00 USD</td></tr></table><p>Served hot. Ingredients: Carrots, Potatoes, Water. Allergen information not supplied; staff must confirm. Invoice quantities are supplied portions, not leftover quantities.</p>',
+        "<h1>FICTIONAL TEST INVOICE</h1><p>Invoice TEST-001. Supplier: Test Kitchen. Customer: Test Event. Not valid for payment.</p><table><tr><th>Item</th><th>Quantity</th><th>Unit price</th><th>Total</th></tr><tr><td>Hot vegetable soup</td><td>30 servings</td><td>$4.00 USD</td><td>$120.00 USD</td></tr></table><p>Served hot. Ingredients: Carrots, Potatoes, Water. Allergen information not supplied; staff must confirm. Invoice quantities are supplied portions, not leftover quantities.</p>",
       );
       const invoicePDF = await documentPage.pdf();
       await fs.writeFile(path.join(output, "sample-invoice.pdf"), invoicePDF);
@@ -416,7 +427,9 @@ async function main() {
         const form = new FormData();
         form.append(
           "image",
-          new Blob([documentType === "menu" ? pdf : invoicePDF], { type: "application/pdf" }),
+          new Blob([documentType === "menu" ? pdf : invoicePDF], {
+            type: "application/pdf",
+          }),
           documentType + ".pdf",
         );
         form.append("documentType", documentType);
@@ -523,13 +536,20 @@ async function main() {
     pass(
       "Leftover limits, admin dispatch, correct center and busy-resource protection",
     );
-    await call(
-      "/api/logistics/scan",
-      "POST",
-      { batchId: batch.batchId, kind: "event", value: eventQR, lat: 0, lng: 0 },
-      driver.token,
-      400,
-    );
+    if (!demoLocations)
+      await call(
+        "/api/logistics/scan",
+        "POST",
+        {
+          batchId: batch.batchId,
+          kind: "event",
+          value: eventQR,
+          lat: 0,
+          lng: 0,
+        },
+        driver.token,
+        400,
+      );
     await call(
       "/api/logistics/scan",
       "POST",
@@ -568,8 +588,10 @@ async function main() {
     );
     const delivered = await upload(3, centerUser.token, batch.batchId, sticker);
     assert.equal(delivered.status, "delivered");
-    for (const proof of Object.values(delivered.chainOfCustody))
+    for (const proof of Object.values(delivered.chainOfCustody)) {
       assert.ok(proof?.sha256);
+      if (demoLocations) assert.equal(proof.locationSource, "simulated");
+    }
     const central = await call(
       "/api/samrit/overview",
       "GET",
@@ -581,7 +603,7 @@ async function main() {
       "completed",
     );
     pass(
-      "GPS rejection, event QR, pickup photo, container sticker, shared venue QR, intake and all custody hashes",
+      `${demoLocations ? "Simulated location provenance" : "GPS rejection"}, event QR, pickup photo, container sticker, shared venue QR, intake and all custody hashes`,
     );
     await page.goto(base + "/consumer/check-in");
     await page.getByLabel("Venue check-in QR code").fill(center.locationQrCode);
@@ -595,6 +617,16 @@ async function main() {
     assert.ok(entryResult.ok(), "Visitor check-in must succeed");
     const entry = (await entryResult.json()).data;
     visits.push(entry.visitId);
+    if (demoLocations) {
+      const sources = (
+        await db.query(
+          "SELECT location_source FROM feedback.visit_scans WHERE visit_id=$1",
+          [entry.visitId],
+        )
+      ).rows;
+      assert.ok(sources.length);
+      assert.ok(sources.every((row) => row.location_source === "simulated"));
+    }
     await page.getByText("You're checked in.").waitFor();
     assert.equal(await page.getByLabel("Exit QR code").count(), 0);
     await call(

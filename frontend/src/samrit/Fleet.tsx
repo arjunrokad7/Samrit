@@ -265,7 +265,7 @@ export default function Fleet({
                     </span>
                     <small className="block text-[10px] text-slate-500">
                       {item.locationUpdatedAt
-                        ? `${item.locationSource === "admin_base" ? "Dispatch base" : "Reported"} · ${localDate(item.locationUpdatedAt)}`
+                        ? `${item.locationSource === 'simulated' ? 'Simulated location' : item.locationSource === "admin_base" ? "Dispatch base" : "Reported"} · ${localDate(item.locationUpdatedAt)}`
                         : "Location time not recorded"}
                     </small>
                   </td>

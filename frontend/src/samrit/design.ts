@@ -75,12 +75,12 @@ const recipes: Record<string, string> = {
     "m-auto w-full max-w-[410px] py-10 [&_h2]:my-3 [&_h2]:text-4xl [&>p]:mb-6 [&>p]:text-sm [&>p]:text-slate-600 [&>p:last-of-type]:mt-7 [&_p>a]:inline-flex [&_p>a]:items-center [&_p>a]:font-semibold [&_p>a]:text-samrita-teal",
   "sr-workspace": "flex min-h-screen",
   "sr-sidebar":
-    "fixed inset-y-0 left-0 z-30 flex w-[244px] -translate-x-full flex-col border-r border-samrita-charcoal bg-samrita-charcoal px-5 pb-5 pt-5 text-white transition-transform min-[701px]:translate-x-0 [&_.sr-brand]:ml-1 [&_.sr-icon-button]:!text-white",
+    "fixed inset-y-0 left-0 z-30 flex w-[244px] -translate-x-full flex-col overflow-y-auto border-r border-samrita-charcoal bg-samrita-charcoal px-5 pb-5 pt-5 text-white transition-transform min-[701px]:translate-x-0 [&_.sr-brand]:ml-1 [&_.sr-icon-button]:!text-white",
   "is-open": "!translate-x-0",
   "sr-workspace-label":
     "mb-7 ml-1 mt-1 text-[8px] font-semibold tracking-[0.15em] text-white/80",
   "sr-role-card":
-    "flex items-center gap-3 rounded-2xl bg-samrita-teal p-3 text-white shadow-stacked-sm shadow-samrita-iron [&_strong]:block [&_strong]:max-w-[145px] [&_strong]:truncate [&_strong]:text-xs [&_small]:text-[10px] [&_small]:text-white/85",
+    "flex shrink-0 items-center gap-3 rounded-2xl bg-samrita-teal p-3 text-white shadow-stacked-sm shadow-samrita-iron [&>.sr-avatar]:shrink-0 [&>div]:min-w-0 [&>div]:flex-1 [&_strong]:block [&_strong]:whitespace-normal [&_strong]:[overflow-wrap:anywhere] [&_strong]:text-xs [&_strong]:leading-relaxed [&_small]:text-[10px] [&_small]:text-white/85",
   "sr-avatar":
     "inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-samrita-fern text-xs font-semibold text-white",
   "sr-avatar-small": "!h-8 !w-8",

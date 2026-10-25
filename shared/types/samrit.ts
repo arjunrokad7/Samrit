@@ -27,6 +27,7 @@ export interface MenuItem {
   verified: boolean;
 }
 export interface Proof {
+  locationSource?: string;
   url: string;
   timestamp: string;
   lat: number;
@@ -35,6 +36,7 @@ export interface Proof {
   sha256: string;
 }
 export interface FoodBatch {
+  handlingRequirements?: Handling[];
   metadata?: Record<string, unknown>;
   batchId: string;
   donorId: string;
@@ -55,6 +57,18 @@ export interface FoodBatch {
     stage2_PickupPic: Proof | null;
     stage3_DropoffPic: Proof | null;
   };
+}
+// Menu items are the normalized source of truth, including legacy batches.
+export function batchHandlingRequirements(
+  batch: Pick<FoodBatch, "items" | "handlingRequirement">,
+): Handling[] {
+  return [
+    ...new Set(
+      batch.items?.length
+        ? batch.items.map((item) => item.handlingRequirement)
+        : [batch.handlingRequirement],
+    ),
+  ];
 }
 export interface CenterProfile {
   metadata?: Record<string, unknown>;
@@ -86,6 +100,7 @@ export interface DonorEvent {
   notes: string;
 }
 export interface DispatchRoute {
+  metadata?: Record<string, unknown>;
   routeId: string;
   driverId: string;
   vehicleId?: string; // Absent only on historical routes created before fleet management.
@@ -133,7 +148,7 @@ export interface FleetDriver {
   latitude?: number;
   longitude?: number;
   locationUpdatedAt?: string;
-  locationSource?: "admin_base" | "driver_report" | "custody_scan";
+  locationSource?: "admin_base" | "driver_report" | "custody_scan" | "simulated";
 }
 export interface FeedbackReview {
   reviewId: string;
@@ -148,6 +163,7 @@ export interface FeedbackReview {
   createdAt: string;
 }
 export interface CustodyScan {
+  locationSource?: string;
   scanId: string;
   batchId: string;
   actorId: string;

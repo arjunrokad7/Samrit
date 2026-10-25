@@ -1,5 +1,5 @@
 import { ui } from "./design";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowLeft,
@@ -12,13 +12,35 @@ import AllergenSelect from "./AllergenSelect";
 import { Brand } from "./Auth";
 import { PublicFooter, TermsNotice } from "./PublicLinks";
 import ConsumerMap from "./ConsumerMap";
+import VoiceAssistant from "./VoiceAssistant";
+import { DEMO_LOCATION_MODE, demoCoordinates } from "./location";
+import { useNavigate } from "react-router-dom";
+import type { VoiceAction } from "../../../shared/types/voice-assistant";
 import {
   type ConsumerMeal,
   type MealSearchResult,
 } from "../../../shared/types/consumer-meals";
 export default function Consumer() {
+  const navigate = useNavigate();
+  const [area, setArea] = useState("");
+  const [locationError, setLocationError] = useState("");
+  const [position, setPosition] = useState<{ lat: number; lng: number } | null>(
+    null,
+  );
   const [meals, setMeals] = useState<ConsumerMeal[]>([]);
-  const [directory, setDirectory] = useState<any[]>([]);
+  const [directory, setDirectory] = useState<
+    {
+      id: string;
+      name: string;
+      address: string;
+      lat: number;
+      lng: number;
+      serviceType: string;
+      description: string;
+      sourceUrl: string;
+      retrievedAt: string;
+    }[]
+  >([]);
   const [catalogError, setCatalogError] = useState("");
   useEffect(() => {
     const controller = new AbortController();
@@ -56,7 +78,7 @@ export default function Consumer() {
     setError("");
     setBusy(false);
   };
-  async function applyPreferences() {
+  async function applyPreferences(preferences = diet, allergens = avoid) {
     currentRequest.current?.abort();
     const controller = new AbortController();
     currentRequest.current = controller;
@@ -69,7 +91,7 @@ export default function Consumer() {
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: diet.trim(), allergens: avoid }),
+          body: JSON.stringify({ text: preferences.trim(), allergens }),
           signal: controller.signal,
         },
       );
@@ -80,7 +102,10 @@ export default function Consumer() {
             body.error ||
             "Smart search could not complete. Please try again.",
         );
-      if (!controller.signal.aborted) setSmart(body.data);
+      if (!controller.signal.aborted) {
+        setSmart(body.data);
+        return true;
+      }
     } catch (e) {
       if (!controller.signal.aborted)
         setError(
@@ -89,18 +114,95 @@ export default function Consumer() {
     } finally {
       if (!controller.signal.aborted) setBusy(false);
     }
+    return false;
   }
+  async function locateDevice() {
+    setLocationError("");
+    if (DEMO_LOCATION_MODE) {
+      setPosition(demoCoordinates());
+      setArea("");
+      return "Demo location selected. Meals are sorted using sample New York City coordinates, not device GPS.";
+    }
+    if (!navigator.geolocation)
+      throw Error("Location is unavailable. Enter a neighborhood instead.");
+    const coords = await new Promise<GeolocationCoordinates>(
+      (resolve, reject) =>
+        navigator.geolocation.getCurrentPosition(
+          (value) => resolve(value.coords),
+          () =>
+            reject(
+              Error(
+                "Location unavailable or permission denied. Enter a neighborhood instead.",
+              ),
+            ),
+          { timeout: 10000, maximumAge: 0 },
+        ),
+    );
+    setPosition({ lat: coords.latitude, lng: coords.longitude });
+    setArea("");
+    return "Listed demo meals are now sorted by distance from your device. Availability is not verified.";
+  }
+  async function voiceAction(action: VoiceAction) {
+    if (action.type === "check_in") {
+      navigate("/consumer/check-in");
+      return "Check-in page opened.";
+    }
+    if (action.type === "location") return locateDevice();
+    if (action.type !== "filters")
+      throw Error("That action is available on the check-in page.");
+    updateFilters();
+    setAvoid(action.allergens);
+    setDiet(action.preferences);
+    setArea(action.area);
+    if (action.preferences.trim().length >= 2) {
+      const applied = await applyPreferences(
+        action.preferences,
+        action.allergens,
+      );
+      if (!applied)
+        return "Allergen and area filters updated. Smart preference search failed; check the page error and retry.";
+    }
+    return "Filters updated. Review the matching demo meals on the page and confirm ingredients with staff.";
+  }
+  const inArea = useCallback(
+    (venue: { name: string; address: string }) =>
+      !area.trim() ||
+      `${venue.name} ${venue.address}`
+        .toLowerCase()
+        .includes(area.trim().toLowerCase()),
+    [area],
+  );
   const visibleVenues = useMemo(
     () =>
-      meals.filter(
-        (venue) =>
-          !avoid.some((allergen) => venue.allergens.includes(allergen)) &&
-          (!smart ||
-            smart.matches.some(
-              (match) => match.id === venue.id && match.match === "yes",
-            )),
-      ),
-    [avoid, smart, meals],
+      meals
+        .filter(
+          (venue) =>
+            inArea(venue) &&
+            !avoid.some((allergen) => venue.allergens.includes(allergen)) &&
+            (!smart ||
+              smart.matches.some(
+                (match) => match.id === venue.id && match.match === "yes",
+              )),
+        )
+        .sort((a, b) => {
+          if (!position) return 0;
+          const distance = (v: ConsumerMeal) =>
+            Math.acos(
+              Math.min(
+                1,
+                Math.max(
+                  -1,
+                  Math.sin((position.lat * Math.PI) / 180) *
+                    Math.sin((v.lat * Math.PI) / 180) +
+                    Math.cos((position.lat * Math.PI) / 180) *
+                      Math.cos((v.lat * Math.PI) / 180) *
+                      Math.cos(((v.lng - position.lng) * Math.PI) / 180),
+                ),
+              ),
+            );
+          return distance(a) - distance(b);
+        }),
+    [avoid, smart, meals, inArea, position],
   );
   const unknown =
     smart?.matches.filter((match) => match.match === "unknown").length || 0;
@@ -141,6 +243,38 @@ export default function Consumer() {
               <h3>Your preferences</h3>
               <SlidersHorizontal size={20} />
             </div>
+            <label>
+              Neighborhood or address
+              <input
+                maxLength={120}
+                value={area}
+                onChange={(e) => setArea(e.target.value)}
+                placeholder="For example, East Village"
+              />
+            </label>
+            <button
+              type="button"
+              className={ui("sr-text-link")}
+              onClick={() =>
+                void locateDevice().catch((e) => setLocationError(e.message))
+              }
+            >
+              Use my location
+            </button>
+            {locationError && (
+              <p role="alert" className="mt-2 text-xs text-red-700">
+                {locationError}
+              </p>
+            )}
+            {position && (
+              <p className="mt-2 text-xs">
+                Meals sorted nearest first using{" "}
+                {DEMO_LOCATION_MODE
+                  ? "a simulated NYC location"
+                  : "your device location"}
+                . Area searches match listed names and addresses.
+              </p>
+            )}
             <AllergenSelect
               value={avoid}
               onChange={(value) => {
@@ -226,12 +360,12 @@ export default function Consumer() {
           </p>
           <details>
             <summary className="cursor-pointer font-semibold">
-              Browse {directory.length} publicly listed locations
+              Browse {directory.filter(inArea).length} publicly listed locations
             </summary>
             <div className="my-5">
               <ConsumerMap
                 publicDirectory
-                venues={directory.map((p) => ({
+                venues={directory.filter(inArea).map((p) => ({
                   ...p,
                   meal: p.serviceType.replaceAll("_", " "),
                   description: p.description,
@@ -244,7 +378,7 @@ export default function Consumer() {
               />
             </div>
             <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-              {directory.map((place) => (
+              {directory.filter(inArea).map((place) => (
                 <article
                   className={ui("sr-panel !my-0")}
                   key={place.id + place.serviceType}
@@ -291,7 +425,7 @@ export default function Consumer() {
                   <Heart size={20} />
                 </span>
                 <span className={ui("sr-status delivered")}>
-                  {venue.distance}
+                  {position ? "Distance sorted" : venue.distance}
                 </span>
               </div>
               <h3>{venue.name}</h3>
@@ -343,6 +477,18 @@ export default function Consumer() {
         </section>
       </main>
       <PublicFooter />
+      <VoiceAssistant
+        context={{
+          page: "meals",
+          allergens: avoid,
+          preferences: diet,
+          area,
+          results: visibleVenues
+            .slice(0, 20)
+            .map(({ name, meal, address }) => ({ name, meal, address })),
+        }}
+        onApply={voiceAction}
+      />
     </div>
   );
 }

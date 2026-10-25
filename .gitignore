@@ -12,6 +12,7 @@ playwright-report/
 test-results/
 uploads/
 .screenshots/
+/presentations/preview/
 
 # Lock files
 yarn.lock

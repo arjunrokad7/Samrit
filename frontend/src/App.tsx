@@ -8,6 +8,7 @@ import Legal from "./samrit/Legal";
 import ConsumerCheckIn from "./samrit/ConsumerCheckIn";
 import { ui } from "./samrit/design";
 import { ThemeProvider, ThemeToggle, useTheme } from "./samrit/Theme";
+import { DEMO_LOCATION_MODE } from "./samrit/location";
 function Notifications() {
   const { theme } = useTheme();
   return <Toaster theme={theme} position="top-right" richColors closeButton />;
@@ -20,6 +21,15 @@ export default function App() {
           <div className={ui("sr-design")}>
             <Notifications />
             <ThemeToggle />
+            {DEMO_LOCATION_MODE && (
+              <div
+                role="note"
+                className="border-b border-amber-300 bg-amber-50 px-4 py-2 text-center text-xs text-amber-800"
+              >
+                Demo location mode · Sample coordinates · GPS proximity is not
+                verified
+              </div>
+            )}
             <Routes>
               <Route path="/" element={<Landing />} />
               <Route path="/login" element={<AuthPage />} />

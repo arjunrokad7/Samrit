@@ -11,6 +11,8 @@ import { SamritController } from './samrit.controller';
 import { SamritAI } from './ai.service';
 import { ConsumerController } from './consumer.controller';
 import { ConsumerSearchService } from './consumer-search.service';
+import { VoiceService } from './voice.service';
+import { VoiceController } from './voice.controller';
 @Module({
   imports: [TypeOrmModule.forFeature([SamritRecord, User])],
   providers: [
@@ -20,7 +22,13 @@ import { ConsumerSearchService } from './consumer-search.service';
     SamritService,
     SamritAI,
     ConsumerSearchService,
+    VoiceService,
   ],
-  controllers: [EvidenceController, SamritController, ConsumerController],
+  controllers: [
+    EvidenceController,
+    SamritController,
+    ConsumerController,
+    VoiceController,
+  ],
 })
 export class SamritModule {}

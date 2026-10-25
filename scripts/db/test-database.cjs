@@ -3,6 +3,7 @@ const { spawnSync } = require("node:child_process");
 const { randomUUID } = require("node:crypto");
 const path = require("node:path");
 const assert = require("node:assert/strict");
+const { readdirSync } = require('node:fs');
 async function run() {
   const admin = new Client({ ...config, database: "postgres" });
   await admin.connect();
@@ -29,9 +30,9 @@ async function run() {
     await db.connect();
     let checks = 0;
     const count = async (sql) => Number((await db.query(sql)).rows[0].count);
-    assert.equal(
-      await count("SELECT count(*) FROM public.samrit_migrations"),
-      4,
+    assert.deepEqual(
+      (await db.query('SELECT name FROM public.samrit_migrations ORDER BY name')).rows.map(row => row.name),
+      readdirSync(path.resolve(__dirname, '../../database/migrations')).filter(name => name.endsWith('.sql')).sort(),
     );
     checks++;
     assert.equal(

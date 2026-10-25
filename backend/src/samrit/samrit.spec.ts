@@ -20,6 +20,39 @@ const center: CenterProfile = {
   staffing: 2,
 };
 describe('Samrit matching constraints', () => {
+  it('requires every storage capability for a mixed batch', () => {
+    const batch = {
+      handlingRequirement: 'hot',
+      items: [
+        { handlingRequirement: 'hot' },
+        { handlingRequirement: 'refrigerated' },
+        { handlingRequirement: 'frozen' },
+      ],
+    } as FoodBatch;
+    expect(canHandle(center, batch)).toBe(false);
+    expect(
+      canHandle(
+        {
+          ...center,
+          capabilities: { ...center.capabilities, hotHolding: true },
+        },
+        batch,
+      ),
+    ).toBe(false);
+    expect(
+      canHandle(
+        {
+          ...center,
+          capabilities: {
+            ...center.capabilities,
+            hotHolding: true,
+            freezer: true,
+          },
+        },
+        batch,
+      ),
+    ).toBe(true);
+  });
   it('keeps frozen and chilled storage distinct', () => {
     expect(
       canHandle(center, { handlingRequirement: 'refrigerated' } as FoodBatch),
@@ -55,6 +88,26 @@ describe('Samrit matching constraints', () => {
   });
 });
 describe('Samrit contracts', () => {
+  it('accepts multiple batch handling types and rejects zero servings', () => {
+    const input = {
+      donorEventId: '3dddbafd-92b3-430b-8530-b19fd87c1f1a',
+      items: [
+        { ...item, handlingRequirement: 'hot' },
+        { ...item, name: 'Chilled salad', handlingRequirement: 'refrigerated' },
+      ],
+      handlingRequirement: 'hot',
+      handlingRequirements: ['hot', 'refrigerated'],
+      expiresAt: '2027-10-25T12:00:00Z',
+      photoId: '22c9201e-f130-4aee-a23c-7a4ef23710f6',
+    };
+    expect(batchSchema.safeParse(input).success).toBe(true);
+    expect(
+      batchSchema.safeParse({
+        ...input,
+        items: [{ ...item, estimatedServings: 0 }],
+      }).success,
+    ).toBe(false);
+  });
   const item = {
     name: 'Bread',
     ingredients: ['Wheat'],

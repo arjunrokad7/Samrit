@@ -8,6 +8,7 @@ import { DataSource } from 'typeorm';
 import { createHash, randomUUID } from 'crypto';
 import { z } from 'zod';
 export type AITask =
+  | 'voice_assistant'
   | 'meal_filter'
   | 'menu_ocr'
   | 'invoice_ocr'
@@ -111,7 +112,14 @@ export class GeminiGateway {
       }
       await this.db.query(
         "UPDATE app.ai_jobs SET status='completed',result=$2,finished_at=now() WHERE id=$1",
-        [id, JSON.stringify(data)],
+        [
+          id,
+          task === 'voice_assistant'
+            ? JSON.stringify({
+                proposedAction: (data as any).action?.type || null,
+              })
+            : JSON.stringify(data),
+        ],
       );
       return { data, jobId: id, mode: 'gemini' as const };
     } catch (e) {

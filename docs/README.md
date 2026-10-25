@@ -24,6 +24,10 @@ Gemini assists with document extraction, preference matching and review analysis
 
 ## Current supporting documents
 
+- [GPS-free presentation mode](DEMO_LOCATIONS.md): sample coordinates, simulated proximity and persistent evidence labels.
+
+- [Optional voice assistant](VOICE_ASSISTANT.md): ElevenLabs audio, Gemini proposals, consent and confirmed page actions.
+
 - [Submission validation record](VALIDATION_RECORD.md): commands actually exercised and their limits.
 - [Database and AI implementation guide](DATABASE_AND_AI.md): schema-specific details and recovery tools; the single-QR model supersedes earlier paired-QR descriptions.
 - [NGO fleet](NGO_FLEET.md): allocation rules, resource ownership and legacy-route compatibility.

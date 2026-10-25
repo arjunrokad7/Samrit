@@ -233,7 +233,7 @@ export class EvidenceService {
         throw new BadRequestException('This step has already been recorded.');
       const scan = (
         await m.query(
-          'INSERT INTO feedback.visit_scans(id,visit_id,qr_code_id,phase,device_recorded_at,latitude,longitude,accuracy_meters,capture_method) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING server_recorded_at',
+          'INSERT INTO feedback.visit_scans(id,visit_id,qr_code_id,phase,device_recorded_at,latitude,longitude,accuracy_meters,capture_method,location_source) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING server_recorded_at',
           [
             randomUUID(),
             visitId,
@@ -244,6 +244,11 @@ export class EvidenceService {
             input.location?.longitude ?? null,
             input.location?.accuracyMeters ?? null,
             input.method,
+            this.config.get('DEMO_LOCATION_MODE') === 'true'
+              ? 'simulated'
+              : input.location
+                ? 'device'
+                : 'unspecified',
           ],
         )
       )[0];
@@ -267,7 +272,7 @@ export class EvidenceService {
       if (!visit)
         throw new ForbiddenException('Visit credentials are invalid.');
       const scans = await m.query(
-        'SELECT phase,server_recorded_at,device_recorded_at,latitude,longitude,accuracy_meters,capture_method FROM feedback.visit_scans WHERE visit_id=$1 ORDER BY server_recorded_at',
+        'SELECT phase,server_recorded_at,device_recorded_at,latitude,longitude,accuracy_meters,capture_method,location_source FROM feedback.visit_scans WHERE visit_id=$1 ORDER BY server_recorded_at',
         [input.visitId],
       );
       if (!scans.some((s: any) => s.phase === 'entry') || !visit.finished_at)
@@ -340,7 +345,7 @@ export class EvidenceService {
   async adminReviews(actor: Actor) {
     if (actor.role !== 'ADMIN') throw new ForbiddenException();
     return this.db.query(
-      `SELECT r.id,r.sentiment,r.raw_text,r.created_at,r.moderation_status,v.location_id,p.name AS "venueName",a.flags,a.summary,a.consistency,a.uncertainties,a.requires_human_review,a.analysis_mode,(SELECT jsonb_agg(jsonb_build_object('phase',s.phase,'recordedAt',s.server_recorded_at,'latitude',s.latitude,'longitude',s.longitude,'accuracyMeters',s.accuracy_meters,'method',s.capture_method) ORDER BY s.server_recorded_at) FROM feedback.visit_scans s WHERE s.visit_id=v.id) AS scans FROM feedback.visit_reviews r JOIN feedback.visits v ON v.id=r.visit_id JOIN directory.locations l ON l.id=v.location_id LEFT JOIN directory.providers p ON p.id=l.provider_id LEFT JOIN feedback.review_analysis a ON a.visit_review_id=r.id ORDER BY r.created_at DESC LIMIT 100`,
+      `SELECT r.id,r.sentiment,r.raw_text,r.created_at,r.moderation_status,v.location_id,p.name AS "venueName",a.flags,a.summary,a.consistency,a.uncertainties,a.requires_human_review,a.analysis_mode,(SELECT jsonb_agg(jsonb_build_object('phase',s.phase,'recordedAt',s.server_recorded_at,'latitude',s.latitude,'longitude',s.longitude,'accuracyMeters',s.accuracy_meters,'method',s.capture_method,'locationSource',s.location_source) ORDER BY s.server_recorded_at) FROM feedback.visit_scans s WHERE s.visit_id=v.id) AS scans FROM feedback.visit_reviews r JOIN feedback.visits v ON v.id=r.visit_id JOIN directory.locations l ON l.id=v.location_id LEFT JOIN directory.providers p ON p.id=l.provider_id LEFT JOIN feedback.review_analysis a ON a.visit_review_id=r.id ORDER BY r.created_at DESC LIMIT 100`,
     );
   }
   async finishVisit(input: any) {

@@ -241,6 +241,12 @@ The inherited optional browser E2E suite targets older screens and has infrastru
 
 ## 7. Decisions deliberately not claimed as complete
 
+### Subsequent workflow corrections
+
+Food-seeker entry remains prominent on the public landing page. Staff portals no longer link directly to Find a Meal, keeping donor, driver, distribution-center and administrator workspaces focused on their operational tasks.
+
+Leftover dish selection is independent of its editable serving count. Clearing a count keeps the dish checked; every selected dish must have a positive whole-number count before submission. Batch handling now supports combinations of hot holding, refrigeration, deep freeze and shelf-stable food. Each confirmed menu item's handling remains authoritative in the normalized database; legacy single-type batches remain compatible. A combined batch requires a vehicle and destination supporting every included type, with capacity for the total servings. Foods needing different conditions remain separately packed.
+
 The submission does not claim live meal inventory publication, external volunteer-system integration, continuous vehicle telemetry, traffic-aware routing, automatic food-safety verification, professional legal approval, production-grade tenant isolation, managed retention/deletion, hardened private custody-image serving, paid AI-service reliability or hardware camera/GPS certification.
 
 These boundaries are part of the business design: a useful coordination prototype should be honest about what its records establish. The [Roadmap](ROADMAP.md) prioritizes the next controls by food-seeker trust, operator accountability and deployment risk.

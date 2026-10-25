@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any, prefer-const, @typescript-eslint/no-unused-vars */
 import '@testing-library/jest-dom';
+// Tests must not inherit a presenter's private local demo-location flag.
+vi.stubEnv('VITE_DEMO_LOCATION_MODE', 'false');
 
 // ── Global Module Mocks ─────────────────────────────────
 

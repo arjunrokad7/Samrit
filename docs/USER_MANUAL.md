@@ -33,6 +33,8 @@ The PDF and HTML editions include a title page, numbered contents, chapter page 
 
 Samrit coordinates surplus-food recovery and provides a dignified public entry point for people seeking meals. This manual covers the final submission's actual screens and workflows. It is a software operating guide, not food-handler training, a food-safety certificate or legal advice.
 
+**Presentation mode:** when the demo-location banner is shown, every location control uses sample NYC coordinates without requesting GPS. Custody proximity checks and distance-based dispatch planning are simulated, while QR identities, role permissions, handoff order, photos and review rules remain active. Simulated locations are marked in saved evidence and cannot establish attendance or trust. To restore device GPS, disable both `DEMO_LOCATION_MODE` on the backend and `VITE_DEMO_LOCATION_MODE` on the frontend, then restart/rebuild both services. The location instructions below describe normal operation when presentation mode is off.
+
 The public site and the operational network are related but distinct. A publicly listed food pantry is not automatically an approved receiving center. A delivered batch is not automatically a public meal listing. A visitor review is not a public rating. These distinctions prevent the demo from implying partnerships, availability or safety guarantees that have not been established.
 
 ### Audiences and access
@@ -171,7 +173,7 @@ When an event saves successfully, it appears in the saved-event list with its pi
 
 Open **Leftover triage** after the event's scheduled time. Choose the correct saved event, select dishes that remain, and enter the remaining servings. For example, a confirmed 30-serving soup may have 10 servings remaining; record 10, not the original 30.
 
-Create separate batches for different handling requirements. A hot dish and a refrigerated dish cannot share a single handling claim. Across all created batches, allocated leftover servings cannot exceed the event's confirmed servings. The server also rejects unknown dishes or altered core menu details supplied as if they belonged to the event.
+A dish stays selected while its servings field is cleared for editing. Every selected dish must have a positive whole-number quantity before creating a batch; uncheck a dish to omit it. **Batch handling** supports multiple selections and initially selects the requirements of the chosen dishes. A batch may include hot, refrigerated, frozen and shelf-stable items together; keep foods requiring different conditions separately packed. Dispatch requires the truck and receiving facility to support every required type. Across all created batches, allocated leftover servings cannot exceed the event's confirmed servings. The server also rejects unknown dishes or altered core menu details supplied as if they belonged to the event.
 
 Select a future **Use by** time in Eastern time. Capture/upload the **Stage 1 donor food photo** while at the pickup point and allow location access. Select **Create rescue batch**. An accepted batch starts pending and becomes available to central dispatch.
 

@@ -1,4 +1,5 @@
 import { ui } from "./design";
+import { DEMO_LOCATION_MODE } from "./location";
 import { useState } from "react";
 import {
   Camera,
@@ -63,13 +64,43 @@ export default function Donor({
   const [source, setSource] = useState("Manual entry");
   const [coords, setCoords] = useState({ lat: REGION.lat, lng: REGION.lng });
   const [eventId, setEventId] = useState(data.events[0]?.eventId || "");
-  const [leftovers, setLeftovers] = useState<Record<number, number>>({});
+  const [leftovers, setLeftovers] = useState<Record<number, string>>({});
   const [photo, setPhoto] = useState<File | null>(null);
-  const [handling, setHandling] = useState<Handling>("hot");
+  const [handling, setHandling] = useState<Handling[]>([]);
   const [expires, setExpires] = useState(() =>
     localInput(new Date(Date.now() + 4 * 3600000)),
   );
   const event = data.events.find((item) => item.eventId === eventId);
+  const selected =
+    event?.items.flatMap((item, index) =>
+      index in leftovers
+        ? [{ ...item, estimatedServings: Number(leftovers[index]) }]
+        : [],
+    ) || [];
+  const invalidServings = selected.some(
+    (item) =>
+      !Number.isInteger(item.estimatedServings) || item.estimatedServings <= 0,
+  );
+  const requiredHandling = [
+    ...new Set(selected.map((item) => item.handlingRequirement)),
+  ];
+  const validHandling =
+    handling.length === requiredHandling.length &&
+    requiredHandling.every((value) => handling.includes(value));
+  function toggleDish(index: number, checked: boolean) {
+    if (!event) return;
+    const next = { ...leftovers };
+    if (checked) next[index] = String(event.items[index].estimatedServings);
+    else delete next[index];
+    setLeftovers(next);
+    setHandling([
+      ...new Set(
+        event.items
+          .filter((_, i) => i in next)
+          .map((item) => item.handlingRequirement),
+      ),
+    ]);
+  }
   const edit = (index: number, patch: Partial<Draft>) =>
     setItems((current) =>
       current.map((item, row) =>
@@ -145,16 +176,15 @@ export default function Donor({
   async function createBatch() {
     if (!event || !photo)
       return toast.error("Choose an event and take a stage 1 food photo.");
-    const selected = event.items.flatMap((item, index) =>
-      (leftovers[index] || 0) > 0
-        ? [{ ...item, estimatedServings: leftovers[index] }]
-        : [],
-    );
     if (!selected.length)
       return toast.error("Select at least one leftover dish.");
-    if (selected.some((item) => item.handlingRequirement !== handling))
+    if (invalidServings)
       return toast.error(
-        "Create separate batches for different handling requirements.",
+        "Enter at least 1 serving for every selected dish, or uncheck the dish.",
+      );
+    if (!validHandling)
+      return toast.error(
+        "Select the handling types required by the selected dishes.",
       );
     setBusy(true);
     try {
@@ -170,7 +200,8 @@ export default function Donor({
       await request("/api/batches", "POST", {
         donorEventId: event.eventId,
         items: selected,
-        handlingRequirement: handling,
+        handlingRequirement: handling[0],
+        handlingRequirements: handling,
         expiresAt: localInputToISO(expires),
         photoId: evidence.photoId,
       });
@@ -199,6 +230,7 @@ export default function Donor({
               onChange={(e) => {
                 setEventId(e.target.value);
                 setLeftovers({});
+                setHandling([]);
               }}
             >
               <option value="">Choose an event</option>
@@ -217,15 +249,8 @@ export default function Donor({
                     <label className={ui("sr-checkbox")}>
                       <input
                         type="checkbox"
-                        checked={!!leftovers[index]}
-                        onChange={(e) =>
-                          setLeftovers({
-                            ...leftovers,
-                            [index]: e.target.checked
-                              ? item.estimatedServings
-                              : 0,
-                          })
-                        }
+                        checked={index in leftovers}
+                        onChange={(e) => toggleDish(index, e.target.checked)}
                       />
                       <span>
                         <strong>{item.name}</strong>
@@ -241,14 +266,18 @@ export default function Donor({
                       Servings
                       <input
                         type="number"
+                        aria-label={`Servings for ${item.name}`}
+                        aria-invalid={
+                          index in leftovers && Number(leftovers[index]) <= 0
+                        }
                         min="1"
                         max="10000"
-                        disabled={!leftovers[index]}
-                        value={leftovers[index] || ""}
+                        disabled={!(index in leftovers)}
+                        value={leftovers[index] ?? ""}
                         onChange={(e) =>
                           setLeftovers({
                             ...leftovers,
-                            [index]: Number(e.target.value),
+                            [index]: e.target.value,
                           })
                         }
                       />
@@ -257,21 +286,55 @@ export default function Donor({
                 ))}
               </div>
               <div className={ui("sr-form-grid")}>
-                <label>
-                  Batch handling
-                  <select
-                    value={handling}
-                    onChange={(e) => setHandling(e.target.value as Handling)}
-                  >
-                    {["hot", "refrigerated", "frozen", "shelf_stable"].map(
-                      (value) => (
-                        <option value={value} key={value}>
+                <div className="my-3">
+                  <span className="mb-2 block text-xs font-medium">
+                    Batch handling
+                  </span>
+                  <details className="rounded-2xl border border-slate-300 bg-white p-4">
+                    <summary
+                      aria-label="Batch handling"
+                      className="cursor-pointer text-sm"
+                    >
+                      {handling.length
+                        ? handling.map(handlingLabel).join(" + ")
+                        : "Select handling types"}
+                    </summary>
+                    <fieldset
+                      aria-label="Handling requirements"
+                      className="mt-3"
+                    >
+                      {(
+                        [
+                          "hot",
+                          "refrigerated",
+                          "frozen",
+                          "shelf_stable",
+                        ] as Handling[]
+                      ).map((value) => (
+                        <label key={value} className={ui("sr-checkbox")}>
+                          <input
+                            type="checkbox"
+                            checked={handling.includes(value)}
+                            onChange={() =>
+                              setHandling((current) =>
+                                current.includes(value)
+                                  ? current.filter((item) => item !== value)
+                                  : [...current, value],
+                              )
+                            }
+                          />
                           {handlingLabel(value)}
-                        </option>
-                      ),
-                    )}
-                  </select>
-                </label>
+                        </label>
+                      ))}
+                    </fieldset>
+                  </details>
+                  {handling.length > 1 && (
+                    <p className="mt-2 text-xs">
+                      Pack foods with different handling requirements
+                      separately.
+                    </p>
+                  )}
+                </div>
                 <label>
                   Use by · Eastern
                   <input
@@ -282,14 +345,32 @@ export default function Donor({
                   />
                 </label>
               </div>
+              {invalidServings && (
+                <p role="alert" className="my-3 text-xs text-red-700">
+                  Every selected dish needs at least 1 serving. Enter a quantity
+                  or uncheck the dish.
+                </p>
+              )}
+              {!!selected.length && !validHandling && (
+                <p role="alert" className="my-3 text-xs text-red-700">
+                  Select the handling types required by your chosen dishes:{" "}
+                  {requiredHandling.map(handlingLabel).join(", ")}.
+                </p>
+              )}
               <PhotoField
                 onChange={setPhoto}
                 label="Stage 1 · Donor food photo"
               />
-              <div className={ui("sr-note")}>Pickup GPS required.</div>
+              <div className={ui("sr-note")}>
+                {DEMO_LOCATION_MODE
+                  ? "Demo pickup location · GPS not required"
+                  : "Pickup GPS required."}
+              </div>
               <button
                 className={ui("sr-button")}
-                disabled={busy}
+                disabled={
+                  busy || !selected.length || invalidServings || !validHandling
+                }
                 onClick={createBatch}
               >
                 {busy ? "Recording custody…" : "Create rescue batch"}

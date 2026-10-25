@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ThumbsDown, ThumbsUp } from "lucide-react";
 import { Brand } from "./Auth";
 import { ScanField } from "./components";
 import { PublicFooter, TermsNotice } from "./PublicLinks";
 import { ui } from "./design";
+import VoiceAssistant from "./VoiceAssistant";
+import { DEMO_LOCATION_MODE, demoCoordinates } from "./location";
+import type { VoiceAction } from "../../../shared/types/voice-assistant";
 type Coordinates = {
   latitude: number;
   longitude: number;
@@ -34,6 +37,10 @@ async function api(path: string, body: unknown) {
   return result.data;
 }
 async function location(): Promise<Coordinates | null> {
+  if (DEMO_LOCATION_MODE) {
+    const { lat, lng } = demoCoordinates();
+    return { latitude: lat, longitude: lng, accuracyMeters: 100000 };
+  }
   if (!navigator.geolocation) return null;
   return new Promise((resolve) =>
     navigator.geolocation.getCurrentPosition(
@@ -49,6 +56,8 @@ async function location(): Promise<Coordinates | null> {
   );
 }
 export default function ConsumerCheckIn() {
+  const navigate = useNavigate();
+  const [scanRequest, setScanRequest] = useState(0);
   const [visit, setVisit] = useState<Visit | null>(null),
     [code, setCode] = useState(""),
     [finishedAt, setFinishedAt] = useState(""),
@@ -87,11 +96,13 @@ export default function ConsumerCheckIn() {
         secret: visit.secret,
       });
       setFinishedAt(data.finishedAt);
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not finish visit.");
     } finally {
       setBusy(false);
     }
+    return false;
   }
   async function submit() {
     if (!visit || !finishedAt || busy) return;
@@ -105,6 +116,7 @@ export default function ConsumerCheckIn() {
         rawText: details,
       });
       setComplete(true);
+      return true;
     } catch (e) {
       setError(
         e instanceof Error ? e.message : "Review could not be submitted.",
@@ -112,6 +124,57 @@ export default function ConsumerCheckIn() {
     } finally {
       setBusy(false);
     }
+    return false;
+  }
+  async function voiceAction(action: VoiceAction) {
+    if (action.type === "back_meals") {
+      navigate("/consumer");
+      return "Find a Meal opened.";
+    }
+    if (busy)
+      throw Error("Please wait for the current visit action to finish.");
+    if (action.type === "scan" && !visit) {
+      setScanRequest((n) => n + 1);
+      return "Camera opened. Point it at the venue check-in QR, or enter its printed ID on the page.";
+    }
+    if (action.type === "finish" && visit && !finishedAt) {
+      if (!(await finish()))
+        throw Error(
+          "Visit could not be finished. Check the page error and retry.",
+        );
+      return "Visit finished. You can now draft your private review.";
+    }
+    if (action.type === "start_review" && visit && !complete) {
+      if (!finishedAt && !(await finish()))
+        throw Error(
+          "Visit could not be finished. Please retry before leaving feedback.",
+        );
+      if (action.sentiment) setSentiment(action.sentiment);
+      if (action.details) setDetails(action.details);
+      return action.sentiment
+        ? "Your review is drafted. Say ‘submit my review’ to send it, or tell me what to change."
+        : "Your review form is open. How was your visit: a good experience, or something that needs attention?";
+    }
+    if (action.type === "review" && finishedAt && !complete) {
+      setSentiment(action.sentiment);
+      setDetails(action.details);
+      return "Review drafted on the page. It has not been submitted.";
+    }
+    if (
+      action.type === "submit_review" &&
+      finishedAt &&
+      sentiment &&
+      !complete
+    ) {
+      if (!(await submit()))
+        throw Error(
+          "Your review was not submitted. Check the page error and retry.",
+        );
+      return "Your private review was received by the central NGO.";
+    }
+    throw Error(
+      "That action is unavailable at this stage. Check in, finish your visit, then draft and submit your review.",
+    );
   }
   return (
     <div className="flex min-h-dvh flex-col bg-slate-50 text-samrita-charcoal">
@@ -135,6 +198,7 @@ export default function ConsumerCheckIn() {
           {!visit ? (
             <>
               <ScanField
+                openRequest={scanRequest}
                 label="Venue check-in QR code"
                 value={code}
                 onChange={setCode}
@@ -159,9 +223,11 @@ export default function ConsumerCheckIn() {
                 Eastern.
               </p>
               <p>
-                {visit.location
-                  ? `Location accuracy: +/-${Math.round(visit.location.accuracyMeters)} m.`
-                  : "Location unavailable; this visit can still be reviewed."}
+                {DEMO_LOCATION_MODE
+                  ? "Demo location recorded; GPS proximity is not verified."
+                  : visit.location
+                    ? `Location accuracy: +/-${Math.round(visit.location.accuracyMeters)} m.`
+                    : "Location unavailable; this visit can still be reviewed."}
               </p>
             </div>
           )}
@@ -278,6 +344,17 @@ export default function ConsumerCheckIn() {
         )}
       </main>
       <PublicFooter />
+      <VoiceAssistant
+        context={{
+          page: "visit",
+          checkedIn: !!visit,
+          finished: !!finishedAt,
+          complete,
+          sentiment,
+          details,
+        }}
+        onApply={voiceAction}
+      />
     </div>
   );
 }

@@ -67,7 +67,7 @@ Menu/invoice files accept JPEG/PNG/WebP/PDF up to 5 MB after signature checks. C
 }
 ```
 
-Handling is `hot`, `refrigerated`, `frozen` or `shelf_stable`. An empty declaration is not an allergen-free guarantee. Metadata is a bounded JSON object. Leftover batches reference the confirmed menu and cannot allocate unknown items, change core declarations or exceed remaining recorded portions. Mixed handling needs separate batches.
+Handling is `hot`, `refrigerated`, `frozen` or `shelf_stable`. An empty declaration is not an allergen-free guarantee. Metadata is a bounded JSON object. Leftover batches reference the confirmed menu and cannot allocate unknown items, change core declarations or exceed remaining recorded portions. Batch creation accepts `handlingRequirements`, a nonempty array covering exactly the selected dishes' handling types, alongside the legacy `handlingRequirement` primary value. Single-type legacy requests remain supported. Per-dish handling remains the normalized source of truth; batch responses derive the complete `handlingRequirements` from those items. Trucks and destinations must satisfy all types, and total serving capacity covers the whole batch.
 
 ## Fleet, dispatch and custody
 

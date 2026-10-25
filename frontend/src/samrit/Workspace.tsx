@@ -1,6 +1,6 @@
 import { ui } from "./design";
 import { useCallback, useEffect, useState } from "react";
-import { Link, Navigate, useSearchParams } from "react-router-dom";
+import { Navigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   LayoutDashboard,
@@ -200,10 +200,6 @@ export default function Workspace() {
             <strong>Every meal has a next chapter.</strong>
             <small>Thank you for helping write it.</small>
           </div>
-          <Link to="/consumer">
-            <ArrowUpRight size={17} />
-            Find a meal
-          </Link>
           <button onClick={signOut}>
             <LogOut size={17} />
             Sign out
@@ -219,18 +215,28 @@ export default function Workspace() {
           >
             <Menu />
           </button>
-          <span>
+          <span className="min-w-0 flex-1 whitespace-nowrap">
             <span className={ui("sr-live-dot")} />
             {labels[user.role]}
-            <span className={ui("sr-topbar-divider")}>/</span>
-            {navigation.find((item) => item[0] === current)?.[1] as string}
+            <span className="max-sm:hidden">
+              <span className={ui("sr-topbar-divider")}>/</span>
+              {navigation.find((item) => item[0] === current)?.[1] as string}
+            </span>
           </span>
-          <div>
+          <div className="shrink-0">
             <MapPin size={15} />
             <span>{REGION.city} · Eastern</span>
             <span className={ui("sr-avatar sr-avatar-small")}>
               {user.name[0]}
             </span>
+            <button
+              type="button"
+              onClick={signOut}
+              className="inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-xl border border-slate-300 px-3 py-2 font-semibold text-samrita-charcoal hover:bg-slate-100"
+            >
+              <LogOut size={16} aria-hidden="true" />
+              Sign out
+            </button>
           </div>
         </header>
         <main className={ui("sr-content")}>
@@ -462,7 +468,7 @@ export default function Workspace() {
                                 <td>{scan.batchId.slice(0, 8)}</td>
                                 <td>{localDate(scan.timestamp)}</td>
                                 <td>
-                                  {scan.lat.toFixed(5)}, {scan.lng.toFixed(5)}
+                                  {scan.locationSource === 'simulated' ? 'Demo · ' : ''}{scan.lat.toFixed(5)}, {scan.lng.toFixed(5)}
                                 </td>
                               </tr>
                             ))}

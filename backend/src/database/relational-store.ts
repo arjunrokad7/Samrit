@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { createHash } from 'crypto';
 import type { EntityManager } from 'typeorm';
+import { batchHandlingRequirements } from '../../../shared/types/samrit';
 export const stableId = (value: string) => {
   const h = createHash('sha256').update(value).digest('hex');
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-8${h.slice(17, 20)}-${h.slice(20, 32)}`;
@@ -21,7 +22,21 @@ export class RelationalStore {
       [kind, id],
     );
     if (!rows[0]) throw new NotFoundException(`${kind} not found`);
-    return rows[0].payload;
+    const payload = rows[0].payload;
+    const locationTable = {
+      scan: 'evidence.custody_events',
+      driver_location: 'evidence.location_reports',
+    }[kind];
+    if (locationTable) {
+      const source = await m.query(
+        `SELECT location_source FROM ${locationTable} WHERE id=$1`,
+        [id],
+      );
+      payload.locationSource = source[0]?.location_source || 'unspecified';
+    }
+    return kind === 'batch'
+      ? { ...payload, handlingRequirements: batchHandlingRequirements(payload) }
+      : payload;
   }
   private async upsert(
     m: EntityManager,
@@ -209,6 +224,7 @@ export class RelationalStore {
     } else if (kind === 'photo') {
       await this.upsert(m, 'evidence.photos', {
         id,
+        location_source: p.locationSource || 'unspecified',
         actor_id: p.actorId,
         stage: p.stage,
         batch_id: p.batchId,
@@ -312,6 +328,7 @@ export class RelationalStore {
     } else if (kind === 'scan') {
       await this.upsert(m, 'evidence.custody_events', {
         id,
+        location_source: p.locationSource || 'unspecified',
         batch_id: p.batchId,
         actor_id: p.actorId,
         event_type: p.kind,
@@ -323,6 +340,7 @@ export class RelationalStore {
     } else if (kind === 'driver_location') {
       await this.upsert(m, 'evidence.location_reports', {
         id,
+        location_source: p.locationSource || 'unspecified',
         driver_id: p.driverId,
         latitude: p.lat,
         longitude: p.lng,

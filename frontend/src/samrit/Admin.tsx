@@ -14,6 +14,8 @@ import {
   portionCount,
   localDate,
   handlingLabel,
+  batchHandlingLabel,
+  batchHandlingRequirements,
 } from "./api";
 import type { Overview } from "./api";
 import { Sheet } from "./Sheet";
@@ -178,7 +180,7 @@ export function Dispatch({
                     <h4>{batch.items.map((item) => item.name).join(", ")}</h4>
                     <p>
                       {portionCount(batch)} servings ·{" "}
-                      {handlingLabel(batch.handlingRequirement)}
+                      {batchHandlingLabel(batch)}
                     </p>
                     <small>Use by {localDate(batch.expiresAt)}</small>
                   </div>
@@ -192,7 +194,9 @@ export function Dispatch({
                         (item) =>
                           item.vehicleId === vehicle &&
                           item.capacityServings >= portionCount(batch) &&
-                          item.capabilities.includes(batch.handlingRequirement),
+                          batchHandlingRequirements(batch).every((value) =>
+                            item.capabilities.includes(value),
+                          ),
                       )
                     }
                     onClick={() => match(batch.batchId)}
@@ -439,12 +443,32 @@ export function Centers({
     </div>
   );
 }
+interface PrivateVisitReview {
+  id: string;
+  venueName?: string;
+  sentiment: string;
+  raw_text?: string;
+  summary?: string;
+  moderation_status: string;
+  analysis_mode?: string;
+  consistency?: string;
+  uncertainties?: string[];
+  scans?: {
+    locationSource?: string;
+    phase: string;
+    recordedAt: string;
+    method: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    accuracyMeters?: number | null;
+  }[];
+}
 export function Moderation({ data }: { data: Overview }) {
-  const [visits, setVisits] = useState<any[]>([]);
+  const [visits, setVisits] = useState<PrivateVisitReview[]>([]);
   const [visitError, setVisitError] = useState("");
   useEffect(() => {
     let active = true;
-    request<any[]>("/api/admin/visit-reviews")
+    request<PrivateVisitReview[]>("/api/admin/visit-reviews")
       .then((rows) => {
         if (active) setVisits(rows);
       })
@@ -475,13 +499,15 @@ export function Moderation({ data }: { data: Overview }) {
               <p>{v.summary || "Awaiting analysis"}</p>
               <details className="my-3 text-sm">
                 <summary>Visit scan evidence</summary>
-                {v.scans?.map((scan: any) => (
+                {v.scans?.map((scan) => (
                   <p key={scan.phase}>
                     {scan.phase} | {localDate(scan.recordedAt)} | {scan.method}{" "}
                     |{" "}
-                    {scan.latitude == null
-                      ? "Location unavailable"
-                      : `${scan.latitude.toFixed(5)}, ${scan.longitude.toFixed(5)} (+/-${Math.round(scan.accuracyMeters ?? 0)} m)`}
+                    {scan.locationSource === "simulated"
+                      ? "Demo location · GPS not verified"
+                      : scan.latitude == null
+                        ? "Location unavailable"
+                        : `${scan.latitude.toFixed(5)}, ${scan.longitude?.toFixed(5) ?? "unknown"} (+/-${Math.round(scan.accuracyMeters ?? 0)} m)`}
                   </p>
                 ))}
               </details>

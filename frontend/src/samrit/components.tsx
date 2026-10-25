@@ -1,5 +1,6 @@
 import { ui } from "./design";
-import { useEffect, useRef, useState } from "react";
+import { DEMO_LOCATION_MODE } from "./location";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { BrowserQRCodeReader } from "@zxing/browser";
 import { QRCodeSVG } from "qrcode.react";
@@ -15,7 +16,7 @@ import {
   REGION,
   localDate,
   mediaUrl,
-  handlingLabel,
+  batchHandlingLabel,
   portionCount,
   errorMessage,
 } from "./api";
@@ -91,7 +92,11 @@ export function PhotoField({
       {preview && <img src={preview} alt="Selected food evidence" />}
       {open && (
         <Sheet title={label} onClose={() => setOpen(false)}>
-          <p className="text-xs text-slate-600">GPS required for handoff.</p>
+          <p className="text-xs text-slate-600">
+            {DEMO_LOCATION_MODE
+              ? "Demo location is recorded automatically."
+              : "GPS required for handoff."}
+          </p>
           <label className={ui("sr-photo-field")}>
             <Camera size={30} />
             <strong>Take or choose your food photo</strong>
@@ -119,13 +124,21 @@ export function ScanField({
   onChange,
   label,
   onScan,
+  openRequest = 0,
 }: {
   value: string;
   onChange: (value: string) => void;
   label: string;
   onScan?: (value: string) => void;
+  openRequest?: number;
 }) {
-  const [open, setOpen] = useState(false);
+  const [manualOpen, setOpen] = useState(false);
+  const [handledRequest, setHandledRequest] = useState(0);
+  const open = manualOpen || openRequest > handledRequest;
+  const closeCamera = useCallback(() => {
+    setOpen(false);
+    setHandledRequest(openRequest);
+  }, [openRequest]);
   const [error, setError] = useState("");
   const video = useRef<HTMLVideoElement>(null);
   useEffect(() => {
@@ -141,7 +154,7 @@ export function ScanField({
           if (result && !cancelled) {
             onChange(result.getText());
             controls.stop();
-            setOpen(false);
+            closeCamera();
             onScan?.(result.getText());
           }
         },
@@ -151,14 +164,15 @@ export function ScanField({
         else stop = () => controls.stop();
       })
       .catch((error) => {
+        if (cancelled) return;
         setError(errorMessage(error));
-        setOpen(false);
+        closeCamera();
       });
     return () => {
       cancelled = true;
       stop?.();
     };
-  }, [open, onChange, onScan]);
+  }, [open, onChange, onScan, closeCamera]);
   return (
     <div className={ui("sr-scan")}>
       <label>
@@ -183,7 +197,7 @@ export function ScanField({
         </div>
       </label>
       {open && (
-        <Sheet title={label} onClose={() => setOpen(false)}>
+        <Sheet title={label} onClose={closeCamera}>
           <video ref={video} className={ui("sr-camera")} muted playsInline />
         </Sheet>
       )}
@@ -261,8 +275,7 @@ export function NetworkMap({
               <Popup>
                 <strong>{batch.eventName}</strong>
                 <br />
-                {portionCount(batch)} servings ·{" "}
-                {handlingLabel(batch.handlingRequirement)}
+                {portionCount(batch)} servings · {batchHandlingLabel(batch)}
               </Popup>
             </CircleMarker>
           ))}
@@ -361,7 +374,7 @@ export function BatchCard({
         {batch.eventName} · {portionCount(batch)} servings
       </p>
       <div className={ui("sr-batch-meta")}>
-        <span>{handlingLabel(batch.handlingRequirement)}</span>
+        <span>{batchHandlingLabel(batch)}</span>
         <span>Use by {localDate(batch.expiresAt)}</span>
       </div>
       <div className={ui("sr-allergens")}>
@@ -426,6 +439,9 @@ export function CustodyGallery({ batches }: { batches: FoodBatch[] }) {
                     </a>
                     <small>{localDate(photo.timestamp)}</small>
                     <small>
+                      {photo.locationSource === "simulated"
+                        ? "Simulated location · "
+                        : ""}
                       {photo.lat.toFixed(5)}, {photo.lng.toFixed(5)}
                     </small>
                     <span

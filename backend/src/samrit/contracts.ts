@@ -47,6 +47,7 @@ export const batchSchema = z
     donorEventId: z.uuid(),
     items: z.array(itemSchema).min(1).max(50),
     handlingRequirement: handlingSchema,
+    handlingRequirements: z.array(handlingSchema).min(1).max(4).optional(),
     expiresAt: z.iso.datetime(),
     photoId: z.uuid(),
     metadata: metadataSchema,
