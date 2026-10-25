@@ -21,6 +21,7 @@ import {
 } from "./api";
 import type { FoodBatch, CenterProfile, DispatchRoute, Location } from "./api";
 import { Sheet } from "./Sheet";
+import type { FleetDriver } from '../../../shared/types/samrit';
 export function Empty({ children }: { children: ReactNode }) {
   return (
     <div className={ui("sr-empty")}>
@@ -39,14 +40,14 @@ export function Tag({ value }: { value: string }) {
     </span>
   );
 }
-export function QR({ value, label }: { value: string; label: string }) {
+export function QR({ value, label, caption = "Every handoff scan records device GPS." }: { value: string; label: string; caption?: string }) {
   return (
     <div className={ui("sr-qr")}>
       <QRCodeSVG value={value} size={112} level="M" />
       <div>
         <strong>{label}</strong>
         <small>{value}</small>
-        <span>Every handoff scan records device GPS.</span>
+        <span>{caption}</span>
       </div>
     </div>
   );
@@ -203,10 +204,12 @@ export function NetworkMap({
   batches,
   centers,
   routes = [],
+  drivers = [],
 }: {
   batches: FoodBatch[];
   centers: CenterProfile[];
   routes?: DispatchRoute[];
+  drivers?: FleetDriver[];
 }) {
   const [offline, setOffline] = useState(false);
   return (
@@ -220,8 +223,9 @@ export function NetworkMap({
         <TileLayer
           eventHandlers={{ tileerror: () => setOffline(true) }}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
+        {drivers.filter(driver => driver.latitude != null && driver.longitude != null && driver.isActive).map(driver => <CircleMarker key={driver.id} center={[driver.latitude!, driver.longitude!]} radius={7} pathOptions={{ color: '#244557', fillOpacity: .9 }}><Popup><strong>{driver.name}</strong><p>{driver.locationSource === 'admin_base' ? 'Dispatch base, not current GPS' : 'Last reported location'}</p><p>{driver.locationUpdatedAt ? localDate(driver.locationUpdatedAt) : 'Timestamp unavailable'}</p></Popup></CircleMarker>)}
         {batches
           .filter((batch) => batch.status !== "delivered")
           .map((batch) => (
@@ -263,7 +267,7 @@ export function NetworkMap({
                 point.location.lng,
               ])}
               pathOptions={{ color: "#376c6f", dashArray: "7 8", weight: 3 }}
-            />
+            ><Popup><strong>Route {route.routeId.slice(0, 8)}</strong><p>{drivers.find(driver => driver.id === route.driverId)?.name || 'Assigned driver'}</p><p>{route.vehicleSnapshot ? `${route.vehicleSnapshot.name} / ${route.vehicleSnapshot.registration}` : 'Historical route: no vehicle record'}</p><p>{route.waypoints.filter(point => point.status === 'done').length} / {route.waypoints.length} stops completed</p></Popup></Polyline>
           ))}
       </MapContainer>
       {offline && (

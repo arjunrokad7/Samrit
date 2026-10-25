@@ -1,8 +1,7 @@
 import { ui } from "./design";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { Truck, ScanLine, CheckCircle2 } from "lucide-react";
-import api from "../services/api";
 import { useSession } from "./session";
 import { request, gps, errorMessage } from "./api";
 import type { Overview, FoodBatch } from "./api";
@@ -181,41 +180,17 @@ export default function Driver({
   refresh: () => Promise<void>;
 }) {
   const { user } = useSession();
-  const [available, setAvailable] = useState(!!user?.isAvailable);
   const [busy, setBusy] = useState(false);
-  const [capabilities, setCapabilities] = useState<string[]>(
-    user?.transportCapabilities || ["shelf_stable"],
-  );
-  useEffect(() => {
-    api
-      .get("/auth/profile")
-      .then((response) => {
-        setAvailable(!!response.data.isAvailable);
-        setCapabilities(
-          response.data.transportCapabilities || ["shelf_stable"],
-        );
-      })
-      .catch(() => {});
-  }, []);
+  const driverProfile = data.drivers.find((driver) => driver.id === user?.id);
   const active = data.batches.filter((batch) =>
     ["matched", "in_transit"].includes(batch.status),
   );
-  async function availability() {
+  async function reportLocation() {
     setBusy(true);
     try {
-      const coords = await gps();
-      await api.patch("/auth/profile", {
-        isAvailable: !available,
-        latitude: coords.lat,
-        longitude: coords.lng,
-        transportCapabilities: capabilities,
-      });
-      setAvailable(!available);
-      toast.success(
-        !available
-          ? "Available for dispatch. Current location updated."
-          : "Marked unavailable.",
-      );
+      await request("/api/fleet/location", "POST", await gps());
+      await refresh();
+      toast.success("Current location reported to central dispatch.");
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -228,56 +203,59 @@ export default function Driver({
         <Truck />
         <div>
           <strong>Your next mile makes a difference.</strong>
-          <small>Availability updates include your current location.</small>
+          <small>
+            Your NGO assigns availability, vehicles and routes. Report your
+            location when ready.
+          </small>
         </div>
         <button
           className={ui("sr-button sr-secondary")}
           disabled={busy}
-          onClick={availability}
+          onClick={reportLocation}
         >
-          {available ? "Go offline" : "Set available + GPS"}
+          {busy ? "Reporting..." : "Report current GPS"}
         </button>
       </div>
       <section className={ui("sr-panel")}>
-        <h3>My transport equipment</h3>
-        <p>
-          Confirm the equipment you can actually provide. Dispatch checks these
-          capabilities.
+        <h3>My NGO-assigned vehicles</h3>
+        <p className="my-3 text-xs text-slate-600">
+          Dispatch availability:{" "}
+          {driverProfile?.isAvailable ? "Available" : "Unavailable"}. Equipment
+          and vehicle capacity are maintained by central NGO administration.
         </p>
-        <div className={ui("sr-equipment")}>
-          {["shelf_stable", "hot", "refrigerated", "frozen"].map((value) => (
-            <label className={ui("sr-checkbox")} key={value}>
-              <input
-                type="checkbox"
-                checked={capabilities.includes(value)}
-                onChange={(event) =>
-                  setCapabilities(
-                    event.target.checked
-                      ? [...capabilities, value]
-                      : capabilities.filter((item) => item !== value),
-                  )
-                }
-              />
-              {value.replaceAll("_", " ")}
-            </label>
-          ))}
-        </div>
-        <button
-          className={ui("sr-button sr-secondary")}
-          disabled={busy}
-          onClick={async () => {
-            try {
-              await api.patch("/auth/profile", {
-                transportCapabilities: capabilities,
-              });
-              toast.success("Transport equipment updated.");
-            } catch (error) {
-              toast.error(errorMessage(error));
-            }
-          }}
-        >
-          Save equipment
-        </button>
+        {data.routes
+          .filter((route) => route.status === "active")
+          .map((route) => {
+            const vehicle = data.vehicles?.find(
+              (item) => item.vehicleId === route.vehicleId,
+            );
+            return (
+              <div
+                key={route.routeId}
+                className="my-3 rounded-2xl border border-slate-200 p-4"
+              >
+                <strong>
+                  {vehicle?.name ||
+                    route.vehicleSnapshot?.name ||
+                    "Historical assignment: confirm vehicle with dispatch"}
+                </strong>
+                <p className="mt-2 text-xs text-slate-600">
+                  {vehicle
+                    ? `${vehicle.registration} / ${vehicle.capacityServings} servings / ${vehicle.capabilities.join(", ")}`
+                    : route.vehicleSnapshot?.registration}
+                </p>
+                <p className="mt-2 text-xs text-slate-600">
+                  {vehicle?.equipment.join(", ")}
+                </p>
+              </div>
+            );
+          })}
+        {!data.routes.some((route) => route.status === "active") && (
+          <p className="text-sm text-slate-600">
+            Your next vehicle will appear here when central dispatch assigns a
+            route.
+          </p>
+        )}
       </section>
       <div className={ui("sr-two-col")}>
         <section>
@@ -297,8 +275,8 @@ export default function Driver({
               ))
             ) : (
               <Empty>
-                Set yourself available. Central dispatch will assign your next
-                route.
+                Contact central dispatch when ready. Your NGO will assign your
+                next route.
               </Empty>
             )}
           </div>
@@ -309,6 +287,7 @@ export default function Driver({
             batches={active}
             centers={data.centers}
             routes={data.routes}
+            drivers={data.drivers}
           />
           {data.routes
             .filter((route) => route.status === "active")

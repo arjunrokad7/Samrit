@@ -38,3 +38,6 @@ postgres_data/
 
 # Ignore database backups
 /backups/
+
+# Original private event documents
+private_documents/

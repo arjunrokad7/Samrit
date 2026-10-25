@@ -3,6 +3,7 @@ import {
   UnauthorizedException,
   ConflictException,
   NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -26,6 +27,7 @@ export class AuthService {
   ) {}
 
   async register(registerDto: RegisterDto) {
+    if (!['DONOR', 'NGO'].includes(registerDto.role)) throw new ForbiddenException('Driver accounts are provisioned by the central NGO.');
     const existingUser = await this.usersRepository.findOne({
       where: { email: registerDto.email },
     });
@@ -227,6 +229,11 @@ export class AuthService {
   }
 
   async updateProfile(userId: string, updateData: any) {
+    if (['transportCapabilities', 'vehicleType', 'vehicleNumber', 'isAvailable'].some(key => Object.prototype.hasOwnProperty.call(updateData, key))) {
+      throw new ForbiddenException('Driver availability and fleet equipment are managed by the central NGO.');
+    }
+    const current = await this.usersRepository.findOne({ where: { id: userId } });
+    if (current?.role === 'VOLUNTEER' && ('latitude' in updateData || 'longitude' in updateData)) throw new ForbiddenException('Use the driver location reporting endpoint.');
     await this.usersRepository.update(userId, updateData);
 
     const user = await this.usersRepository.findOne({

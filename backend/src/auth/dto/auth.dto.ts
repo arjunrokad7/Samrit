@@ -41,7 +41,7 @@ export class RegisterDto {
     description: 'User role in the platform',
   })
   @IsEnum(UserRole)
-  @IsIn([UserRole.DONOR, UserRole.NGO, UserRole.VOLUNTEER])
+  @IsIn([UserRole.DONOR, UserRole.NGO])
   role: UserRole;
 
   @ApiProperty({

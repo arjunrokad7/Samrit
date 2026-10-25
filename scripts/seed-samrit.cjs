@@ -96,45 +96,29 @@ async function seed() {
       phone: "+1-212-555-0103",
     },
   ];
+  const admin = await login(process.env.SUPER_ADMIN_EMAIL || 'admin@samrit.local', process.env.SUPER_ADMIN_PASSWORD || 'SecureAdmin123!');
   const accounts = [];
   for (const profile of profiles) {
     try {
-      await call("/auth/register", "POST", { ...profile, password });
-    } catch (error) {
-      if (!error.message.includes("Email already exists")) throw error;
-    }
-    const session = await login(profile.email);
-    const { email, role, ...update } = profile;
-    await call(
-      "/auth/profile",
-      "PATCH",
-      {
-        ...update,
-        latitude: pickup.lat,
-        longitude: pickup.lng,
-        ...(role === "VOLUNTEER"
-          ? {
-              isAvailable: true,
-              vehicleType: "van",
-              vehicleNumber: "DEMO-NYC",
-              transportCapabilities: [
-                "hot",
-                "refrigerated",
-                "frozen",
-                "shelf_stable",
-              ],
-            }
-          : {}),
-      },
-      session.token,
-    );
+      if (profile.role === 'VOLUNTEER') await call('/api/fleet/drivers', 'POST', { name: profile.name, email: profile.email, password: 'DemoDriver123!', phone: profile.phone, isAvailable: true, location: pickup }, admin.token);
+      else await call('/auth/register', 'POST', { ...profile, password });
+    } catch (error) { if (!error.message.includes('Email already exists')) throw error; }
+    let session;
+    if (profile.role === 'VOLUNTEER') { try { session = await login(profile.email, 'DemoDriver123!'); } catch { session = await login(profile.email); } }
+    else session = await login(profile.email);
+    if (profile.role === 'VOLUNTEER') await call(`/api/fleet/drivers/${session.user.id}`, 'PATCH', { isAvailable: true, isActive: true }, admin.token);
+    else { const { email, role, ...update } = profile; await call('/auth/profile', 'PATCH', { ...update, latitude: pickup.lat, longitude: pickup.lng }, session.token); }
     accounts.push(session);
   }
   const [donor, centerUser, driver] = accounts;
-  const admin = await login(
-    process.env.SUPER_ADMIN_EMAIL || "admin@samrit.local",
-    process.env.SUPER_ADMIN_PASSWORD || "SecureAdmin123!",
-  );
+  const fleetOverview = await call('/api/samrit/overview', 'GET', undefined, admin.token);
+  const fleetSpecs = [
+    { name: 'NYC Demo Hot Meals Truck', registration: 'DEMO-NYC-HOT', capacityServings: 250, capabilities: ['shelf_stable','hot'], equipment: ['Insulated hot holding boxes','Hand truck'], status: 'ready' },
+    { name: 'NYC Demo Refrigerated Van', registration: 'DEMO-NYC-COLD', capacityServings: 180, capabilities: ['shelf_stable','refrigerated'], equipment: ['Refrigerated compartment','Temperature logger'], status: 'ready' },
+    { name: 'NYC Demo Freezer Truck', registration: 'DEMO-NYC-FREEZE', capacityServings: 150, capabilities: ['shelf_stable','frozen'], equipment: ['Freezer compartment','Lift gate'], status: 'maintenance' },
+  ];
+  const demoVehicles = [];
+  for (const spec of fleetSpecs) demoVehicles.push(fleetOverview.vehicles?.find(item => item.registration === spec.registration) || await call('/api/fleet/vehicles', 'POST', spec, admin.token));
   const center = await call(
     "/api/centers/profile",
     "PUT",
@@ -245,7 +229,7 @@ async function seed() {
       await call(
         "/api/logistics/match",
         "POST",
-        { batchId: batch.batchId, driverId: driver.user.id },
+        { batchId: batch.batchId, driverId: driver.user.id, vehicleId: demoVehicles[0].vehicleId },
         admin.token,
       );
       if (index === 0) {

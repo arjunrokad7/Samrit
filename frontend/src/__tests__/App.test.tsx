@@ -3,6 +3,13 @@ import App from '../App';
 vi.mock('../samrit/Workspace', () => ({ default: () => <div>Workspace</div> }));
 describe('Samrit routes', () => {
  beforeEach(() => { localStorage.clear(); window.history.replaceState({}, '', '/'); });
+ it('offers public registration only for donors and centers', () => {
+  window.history.replaceState({}, '', '/register'); render(<App />);
+  expect(screen.getByRole('option', { name: 'Event organizer / donor' })).toBeInTheDocument();
+  expect(screen.getByRole('option', { name: 'Distribution center' })).toBeInTheDocument();
+  expect(screen.queryByRole('option', { name: /driver|volunteer/i })).not.toBeInTheDocument();
+  expect(screen.getByText(/Driver access is issued by your central NGO/)).toBeInTheDocument();
+ });
  it('renders the Samrit landing page and consumer entry point', () => {
   render(<App />);
   expect(screen.getByRole('heading', { name: /Good food/ })).toBeInTheDocument();

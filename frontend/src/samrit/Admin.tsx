@@ -16,6 +16,8 @@ import {
   handlingLabel,
 } from "./api";
 import type { Overview } from "./api";
+import { Sheet } from "./Sheet";
+import { FleetSummary } from "./Fleet";
 import { Empty, NetworkMap, Tag } from "./components";
 export function Dispatch({
   data,
@@ -31,6 +33,49 @@ export function Dispatch({
   }, []);
   const [busy, setBusy] = useState("");
   const [driver, setDriver] = useState("");
+  const [vehicle, setVehicle] = useState("");
+  const [selectedRoute, setSelectedRoute] = useState("");
+  const [cancelId, setCancelId] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
+  const activeRoutes = data.routes.filter((route) => route.status === "active");
+  const freeDrivers = data.drivers.filter(
+    (item) =>
+      item.isActive &&
+      item.isAvailable &&
+      !activeRoutes.some((route) => route.driverId === item.id),
+  );
+  const freeVehicles = (data.vehicles || []).filter(
+    (item) =>
+      item.status === "ready" &&
+      !activeRoutes.some((route) => route.vehicleId === item.vehicleId),
+  );
+  const mapRoutes = selectedRoute
+    ? activeRoutes.filter((route) => route.routeId === selectedRoute)
+    : activeRoutes;
+  const mapBatches = selectedRoute
+    ? data.batches.filter((batch) =>
+        mapRoutes.some((route) =>
+          route.assignedBatches.includes(batch.batchId),
+        ),
+      )
+    : data.batches;
+  async function cancelRoute() {
+    setBusy(cancelId);
+    try {
+      await request(`/api/logistics/routes/${cancelId}/cancel`, "PATCH", {
+        reason: cancelReason,
+      });
+      await refresh();
+      setCancelId("");
+      setCancelReason("");
+      toast.success("Route cancelled. Driver and vehicle released.");
+    } catch (error) {
+      toast.error(errorMessage(error));
+    } finally {
+      setBusy("");
+    }
+  }
+
   const [reason, setReason] = useState("");
   const pending = data.batches
     .filter((batch) => batch.status === "pending")
@@ -40,10 +85,11 @@ export function Dispatch({
     try {
       await request("/api/logistics/match", "POST", {
         batchId,
-        ...(driver ? { driverId: driver } : {}),
+        driverId: driver,
+        vehicleId: vehicle,
       });
       await refresh();
-      toast.success("Center and driver matched. Route is ready.");
+      toast.success("Center, driver and vehicle assigned. Route is ready.");
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -68,6 +114,7 @@ export function Dispatch({
   }
   return (
     <div className={ui("sr-stack")}>
+      <FleetSummary data={data} />
       <div className={ui("sr-two-col")}>
         <section className={ui("sr-panel")}>
           <div className={ui("sr-panel-heading")}>
@@ -81,7 +128,7 @@ export function Dispatch({
           </div>
           <p>
             Earliest expiry first. Matching checks open hours, equipment,
-            available capacity, and a driver's current assignment.
+            available capacity, and both driver and vehicle assignments.
           </p>
           <label>
             Driver assignment
@@ -89,8 +136,8 @@ export function Dispatch({
               value={driver}
               onChange={(event) => setDriver(event.target.value)}
             >
-              <option value="">Nearest available driver</option>
-              {data.drivers.map((driver) => (
+              <option value="">Select an available NGO driver</option>
+              {freeDrivers.map((driver) => (
                 <option key={driver.id} value={driver.id}>
                   {driver.name}
                   {driver.isAvailable ? " · available" : " · offline"}
@@ -98,6 +145,31 @@ export function Dispatch({
               ))}
             </select>
           </label>
+          <label>
+            Vehicle assignment
+            <select
+              value={vehicle}
+              onChange={(event) => setVehicle(event.target.value)}
+            >
+              <option value="">Select a ready NGO vehicle</option>
+              {freeVehicles.map((item) => (
+                <option key={item.vehicleId} value={item.vehicleId}>
+                  {item.name} / {item.registration} / {item.capacityServings}{" "}
+                  servings / {item.capabilities.map(handlingLabel).join(", ")}
+                </option>
+              ))}
+            </select>
+          </label>
+          {(!freeDrivers.length || !freeVehicles.length) && (
+            <p className="text-xs text-slate-600">
+              Manage driver availability and vehicle readiness in Drivers &amp;
+              vehicles.
+            </p>
+          )}
+          <p className="my-3 text-xs text-slate-600">
+            Match route is enabled only when the selected vehicle supports the
+            batch handling requirement and serving count.
+          </p>
           <label>
             Quality hold reason ? required to reject
             <input
@@ -123,7 +195,17 @@ export function Dispatch({
                   </div>
                   <button
                     className={ui("sr-button sr-small")}
-                    disabled={!!busy || Date.parse(batch.expiresAt) <= now}
+                    disabled={
+                      !!busy ||
+                      Date.parse(batch.expiresAt) <= now ||
+                      !freeDrivers.some((item) => item.id === driver) ||
+                      !freeVehicles.some(
+                        (item) =>
+                          item.vehicleId === vehicle &&
+                          item.capacityServings >= portionCount(batch) &&
+                          item.capabilities.includes(batch.handlingRequirement),
+                      )
+                    }
                     onClick={() => match(batch.batchId)}
                   >
                     {busy === batch.batchId
@@ -152,10 +234,33 @@ export function Dispatch({
             <h3>Recovery network</h3>
             <span className={ui("sr-status delivered")}>NYC</span>
           </div>
+          <label>
+            Active route on map
+            <select
+              value={selectedRoute}
+              onChange={(event) => setSelectedRoute(event.target.value)}
+            >
+              <option value="">All active routes</option>
+              {activeRoutes.map((route) => (
+                <option key={route.routeId} value={route.routeId}>
+                  {route.routeId.slice(0, 8)} /{" "}
+                  {data.drivers.find((item) => item.id === route.driverId)
+                    ?.name || "Driver"}
+                </option>
+              ))}
+            </select>
+          </label>
           <NetworkMap
-            batches={data.batches}
+            batches={mapBatches}
             centers={data.centers}
-            routes={data.routes}
+            routes={mapRoutes}
+            drivers={
+              selectedRoute
+                ? data.drivers.filter((item) =>
+                    mapRoutes.some((route) => route.driverId === item.id),
+                  )
+                : data.drivers
+            }
           />
           <div className={ui("sr-map-legend")}>
             <span>● Centers</span>
@@ -164,7 +269,8 @@ export function Dispatch({
           </div>
           <small className={ui("sr-muted")}>
             Routes show straight-line connections. Travel estimates use an
-            assumed city speed.
+            assumed city speed. Driver markers show the last report or dispatch
+            base, not continuous live tracking.
           </small>
         </aside>
       </div>
@@ -180,6 +286,7 @@ export function Dispatch({
                 <tr>
                   <th>Route</th>
                   <th>Driver</th>
+                  <th>Vehicle</th>
                   <th>Destination</th>
                   <th>Distance</th>
                   <th>Status</th>
@@ -196,6 +303,11 @@ export function Dispatch({
                       )?.name || route.driverId.slice(0, 8)}
                     </td>
                     <td>
+                      {route.vehicleSnapshot
+                        ? `${route.vehicleSnapshot.name} / ${route.vehicleSnapshot.registration}`
+                        : "Historical: vehicle not recorded"}
+                    </td>
+                    <td>
                       {
                         data.centers.find(
                           (center) => center.centerId === route.centerId,
@@ -207,6 +319,14 @@ export function Dispatch({
                     </td>
                     <td>
                       <Tag value={route.status} />
+                      <small className="block mt-2 text-[10px] text-slate-500">
+                        {
+                          route.waypoints.filter(
+                            (point) => point.status === "done",
+                          ).length
+                        }{" "}
+                        / {route.waypoints.length} stops done
+                      </small>
                     </td>
                     <td>
                       {route.status === "active" && (
@@ -216,6 +336,18 @@ export function Dispatch({
                           onClick={() => reject(route.assignedBatches[0])}
                         >
                           Reject batch
+                        </button>
+                      )}
+                      {route.status === "active" && (
+                        <button
+                          className={ui("sr-text-link mt-3")}
+                          disabled={!!busy}
+                          onClick={() => {
+                            setCancelId(route.routeId);
+                            setCancelReason("");
+                          }}
+                        >
+                          Cancel before pickup
                         </button>
                       )}
                     </td>
@@ -228,6 +360,35 @@ export function Dispatch({
           <Empty>Matched batches create a driver route.</Empty>
         )}
       </section>
+      {cancelId && (
+        <Sheet
+          title="Cancel route before pickup"
+          onClose={() => {
+            if (!busy) setCancelId("");
+          }}
+        >
+          <p className="text-sm text-slate-600">
+            Uncollected batches return to the dispatch queue. If pickup evidence
+            exists, complete the custody workflow or use a quality hold instead.
+          </p>
+          <label>
+            Cancellation reason
+            <input
+              minLength={5}
+              maxLength={500}
+              value={cancelReason}
+              onChange={(event) => setCancelReason(event.target.value)}
+            />
+          </label>
+          <button
+            className={ui("sr-button")}
+            disabled={!!busy || cancelReason.trim().length < 5}
+            onClick={() => void cancelRoute()}
+          >
+            Cancel route and release resources
+          </button>
+        </Sheet>
+      )}
     </div>
   );
 }
@@ -295,6 +456,21 @@ export function Centers({
   );
 }
 export function Moderation({ data }: { data: Overview }) {
+  const [visits, setVisits] = useState<any[]>([]);
+  const [visitError, setVisitError] = useState("");
+  useEffect(() => {
+    let active = true;
+    request<any[]>("/api/admin/visit-reviews")
+      .then((rows) => {
+        if (active) setVisits(rows);
+      })
+      .catch(() => {
+        if (active) setVisitError("Private visit reviews could not load.");
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
   return (
     <div className={ui("sr-stack")}>
       <div className={ui("sr-callout")}>
@@ -307,6 +483,78 @@ export function Moderation({ data }: { data: Overview }) {
           </small>
         </div>
       </div>
+      <section className={ui("sr-panel")}>
+        <h3>Private venue visits</h3>
+        <p className="text-sm">
+          AI consistency analysis supports human review. Recorded visit duration
+          does not prove queue time or whether a review is true.
+        </p>
+        {visitError && <p role="alert">{visitError}</p>}
+        {visits.length ? (
+          visits.map((v) => (
+            <article className="my-4 border-t border-slate-200 pt-4" key={v.id}>
+              <h4>{v.venueName || "Registered venue"}</h4>
+              <strong>
+                {v.sentiment === "negative"
+                  ? "Needs attention"
+                  : "Good experience"}
+              </strong>
+              <p>{v.raw_text || "No written details."}</p>
+              <p>{v.summary || "Awaiting analysis"}</p>
+              <details className="my-3 text-sm">
+                <summary>Visit scan evidence</summary>
+                {v.scans?.map((scan: any) => (
+                  <p key={scan.phase}>
+                    {scan.phase} ? {localDate(scan.recordedAt)} ? {scan.method}{" "}
+                    ?{" "}
+                    {scan.latitude == null
+                      ? "Location unavailable"
+                      : `${scan.latitude.toFixed(5)}, ${scan.longitude.toFixed(5)} (?${Math.round(scan.accuracyMeters ?? 0)} m)`}
+                  </p>
+                ))}
+              </details>
+              {v.moderation_status === "pending" ? (
+                <button
+                  className={ui("sr-text-link")}
+                  onClick={async () => {
+                    try {
+                      await request(
+                        "/api/admin/visit-reviews/" + v.id + "/reviewed",
+                        "POST",
+                      );
+                      setVisits((rows) =>
+                        rows.map((r) =>
+                          r.id === v.id
+                            ? { ...r, moderation_status: "reviewed" }
+                            : r,
+                        ),
+                      );
+                    } catch (e) {
+                      toast.error(errorMessage(e));
+                    }
+                  }}
+                >
+                  Mark reviewed by NGO staff
+                </button>
+              ) : (
+                <p className="text-sm">Reviewed by NGO staff</p>
+              )}
+              <small>
+                {v.analysis_mode || "pending"} ?{" "}
+                {v.consistency || "insufficient_evidence"} ? Human review
+                required
+              </small>
+              {v.uncertainties?.map((u: string) => (
+                <p className="text-xs" key={u}>
+                  {u}
+                </p>
+              ))}
+            </article>
+          ))
+        ) : (
+          <p>No private visit reviews yet.</p>
+        )}
+      </section>
       {data.reviews.length ? (
         data.reviews.map((review) => (
           <article className={ui("sr-panel")} key={review.reviewId}>

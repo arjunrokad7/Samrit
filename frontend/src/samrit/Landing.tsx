@@ -66,7 +66,7 @@ export default function Landing() {
                 <Link to={user ? '/dashboard' : '/register'} className={ui('sr-button sr-secondary !min-h-[76px] !w-full !whitespace-normal !border-2 !border-samrita-teal !px-4 !text-sm !shadow-samrita-teal')}>
                   <Heart size={22} /><span>Be a part of the solution</span><ArrowUpRight size={20} />
                 </Link>
-                <p className="mt-4 text-xs text-slate-600">Share food, open your kitchen, or volunteer to drive.</p>
+                <p className="mt-4 text-xs text-slate-600">Share food, open your kitchen, or support your community.</p>
               </div>
             </div>
             <p className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-xs text-slate-600"><strong className="font-semibold text-samrita-charcoal">Meal-finder preview:</strong> sample listings only, not live food availability. Confirm with a provider before visiting.</p>
@@ -170,9 +170,9 @@ export default function Landing() {
               ],
               [
                 Truck,
-                "04 / DRIVERS & DISPATCH",
+                "04 / NGO DRIVERS & DISPATCH",
                 "Every mile, accounted for.",
-                "Match equipment and capacity. Scan, photograph, and track the food from pickup to arrival.",
+                "Your NGO assigns the truck and route. Sign in with issued credentials to record each pickup and delivery.",
                 "/login",
               ],
             ].map(([Icon, label, title, body, href]) => {

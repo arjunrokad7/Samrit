@@ -46,8 +46,8 @@ require("../backend/node_modules/dotenv").config({
       ],
       [
         "driver",
-        "volunteer@example.com",
-        "Demo123!",
+        "driver.maya@example.com",
+        "DemoDriver123!",
         ["My handoffs", "Chain of custody"],
       ],
       [
@@ -56,6 +56,7 @@ require("../backend/node_modules/dotenv").config({
         process.env.SUPER_ADMIN_PASSWORD || "SecureAdmin123!",
         [
           "Dispatch & routes",
+          "Drivers & vehicles",
           "Distribution centers",
           "Private quality reviews",
           "Chain of custody",
@@ -135,14 +136,12 @@ require("../backend/node_modules/dotenv").config({
       0,
     );
     await tab.getByRole("link", { name: "Already at a place? Check in" }).click();
-    await tab.getByLabel("Entry QR code").fill("samrit:visit:east-village:entry");
-    await tab.getByRole("button", { name: "Record entry code" }).click();
-    await tab.getByRole("button", { name: "Leave a private anonymous review" }).click();
-    await tab.getByLabel("Exit QR code").fill("samrit:visit:east-village:exit");
-    await tab.getByRole("button", { name: "Record exit code" }).click();
+    await tab.getByLabel("Venue check-in QR code").fill("samrit:visit:east-village:entry");
+    await tab.getByRole("button", { name: "Check in", exact: true }).click();
+    await tab.getByRole("button", { name: "Finish visit and leave a review" }).click();
     await tab.getByRole("button", { name: "Good experience", exact: true }).click();
-    await tab.getByRole("button", { name: "Preview private review", exact: true }).click();
-    await tab.getByRole("status").filter({ hasText: "Review preview complete" }).waitFor();
+    await tab.getByRole("button", { name: "Submit private review", exact: true }).click();
+    await tab.getByRole("status").filter({ hasText: "Your private review was received" }).waitFor();
     await tab.screenshot({
       path: path.join(output, "consumer-mobile.png"),
       fullPage: true,
@@ -152,7 +151,7 @@ require("../backend/node_modules/dotenv").config({
     await ctx.close();
     assert.deepEqual(errors, []);
     console.log(
-      `PASS: ${checked} browser views/checks, all four authenticated workspaces, mobile layouts, consumer filtering and review preview. No page errors.`,
+      `PASS: ${checked} browser views/checks, all four authenticated workspaces, mobile layouts, consumer filtering and saved private review. No page errors.`,
     );
   } finally {
     await browser.close();

@@ -1,68 +1,105 @@
 import { ConfigService } from '@nestjs/config';
+import { DataSource } from 'typeorm';
+import { GeminiGateway } from './gemini.gateway';
 import { SamritAI } from './ai.service';
-
-function configuration(values: Record<string, string> = {}) {
-  return { get: (key: string) => values[key] } as ConfigService;
-}
-describe('Samrit AI gateway', () => {
+import { z } from 'zod';
+describe('shared Gemini gateway', () => {
   afterEach(() => jest.restoreAllMocks());
-  it('never invents menu OCR when provider credentials are absent', async () => {
-    const ai = new SamritAI(configuration());
-    expect(ai.configured).toBe(false);
-    await expect(
-      ai.menu({ buffer: Buffer.from('image'), mimetype: 'image/png' } as any),
-    ).rejects.toThrow('not configured');
-  });
-  it('labels local fallback classification honestly', async () => {
-    const ai = new SamritAI(configuration());
-    const result = await ai.flags(
-      'The packaging leaked and the food smelled spoiled.',
+  const setup = (key = 'test-key') => {
+    const query = jest.fn().mockResolvedValue([]);
+    const gateway = new GeminiGateway(
+      {
+        get: (n: string) =>
+          n === 'GEMINI_API_KEY'
+            ? key
+            : n === 'GEMINI_MODEL'
+              ? 'test-model'
+              : undefined,
+      } as ConfigService,
+      { query } as unknown as DataSource,
     );
-    expect(result.mode).toBe('local_rules');
-    expect(result.flags).toEqual(
-      expect.arrayContaining(['spoiled_food', 'unsafe_packaging']),
-    );
-  });
-  it('rotates configured keys without retrying a failed provider request', async () => {
-    const ai = new SamritAI(
-      configuration({
-        GEMINI_MODEL: 'configured-test-model',
-        KEY1: 'key-one',
-        KEY2: 'key-two',
+    return { gateway, query };
+  };
+  const response = (data: unknown) =>
+    ({
+      ok: true,
+      json: async () => ({
+        candidates: [{ content: { parts: [{ text: JSON.stringify(data) }] } }],
       }),
-    );
-    const fetchMock = jest
+    }) as Response;
+  it('uses the same server key and audits validated results without saving input text', async () => {
+    const fetcher = jest
       .spyOn(global, 'fetch')
-      .mockResolvedValue({ ok: false } as Response);
-    await ai.flags('First test review');
-    await ai.flags('Second test review');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
-    expect(
-      (fetchMock.mock.calls[0][1].headers as Record<string, string>)[
-        'x-goog-api-key'
-      ],
-    ).toBe('key-one');
-    expect(
-      (fetchMock.mock.calls[1][1].headers as Record<string, string>)[
-        'x-goog-api-key'
-      ],
-    ).toBe('key-two');
-  });
-  it('rejects invalid model JSON and keeps a labeled fallback', async () => {
-    const ai = new SamritAI(
-      configuration({
-        QWEN_BASE_URL: 'http://localhost:11434/v1',
-        QWEN_MODEL: 'test-local-model',
-      }),
+      .mockResolvedValue(response({ ok: true }));
+    const { gateway, query } = setup();
+    await gateway.generate(
+      'meal_filter',
+      'private preference',
+      z.object({ ok: z.boolean() }),
     );
+    expect(fetcher.mock.calls[0][1]?.headers).toHaveProperty(
+      'x-goog-api-key',
+      'test-key',
+    );
+    expect(JSON.stringify(query.mock.calls)).not.toContain(
+      'private preference',
+    );
+    expect(query.mock.calls[1][0]).toContain("status='completed'");
+  });
+  it('rejects malformed model output and marks the job failed', async () => {
+    jest.spyOn(global, 'fetch').mockResolvedValue(response({ ok: 'wrong' }));
+    const { gateway, query } = setup();
+    await expect(
+      gateway.generate('menu_ocr', 'extract', z.object({ ok: z.boolean() })),
+    ).rejects.toThrow('failed validation');
+    expect(query.mock.calls.at(-1)[1][1]).toBe('invalid_output');
+  });
+  it('requires the configured key instead of silently using unrelated providers', async () => {
+    const { gateway } = setup('');
+    await expect(
+      gateway.generate('menu_ocr', 'extract', z.object({})),
+    ).rejects.toThrow('manual entry');
+  });
+  it('preserves unknown OCR quantities and handling for human confirmation', async () => {
     jest
       .spyOn(global, 'fetch')
-      .mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          choices: [{ message: { content: '{"flags":["invented_flag"]}' } }],
+      .mockResolvedValue(
+        response({
+          items: [
+            {
+              name: 'Lentils',
+              ingredients: null,
+              allergens: null,
+              estimatedServings: null,
+              handlingRequirement: 'unknown',
+              quantity: 2,
+              unit: 'bags',
+              sourceReference: 'page 1 line 2',
+              itemType: 'ingredient',
+            },
+          ],
         }),
-      } as Response);
-    expect((await ai.flags('No issue reported')).mode).toBe('local_rules');
+      );
+    const { gateway } = setup();
+    const result = await new SamritAI(gateway).menu(
+      {
+        mimetype: 'application/pdf',
+        buffer: Buffer.from('%PDF-'),
+      } as Express.Multer.File,
+      'invoice',
+    );
+    expect(result.items[0].estimatedServings).toBeNull();
+    expect(result.items[0].handlingRequirement).toBe('unknown');
+    expect(result.requiresHumanVerification).toBe(true);
+  });
+  it('keeps review intake open with explicit manual review when Gemini fails', async () => {
+    jest.spyOn(global, 'fetch').mockRejectedValue(Error('offline'));
+    const { gateway } = setup();
+    const result = await new SamritAI(gateway).analyze('Long line, no food', {
+      elapsedMinutes: 45,
+    });
+    expect(result.mode).toBe('manual_review');
+    expect(result.requiresHumanReview).toBe(true);
+    expect(result.consistency).toBe('insufficient_evidence');
   });
 });

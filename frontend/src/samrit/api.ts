@@ -6,6 +6,8 @@ import type {
   DispatchRoute,
   FeedbackReview,
   CustodyScan,
+  FleetVehicle,
+  FleetDriver,
 } from "../../../shared/types/samrit";
 export type {
   FoodBatch,
@@ -42,7 +44,8 @@ export interface Overview {
   routes: DispatchRoute[];
   reviews: FeedbackReview[];
   scans: CustodyScan[];
-  drivers: { id: string; name: string; isAvailable: boolean }[];
+  drivers: FleetDriver[];
+  vehicles: FleetVehicle[];
 }
 export async function request<T>(
   path: string,

@@ -15,3 +15,6 @@ images/
 **/uploads
 .screenshots/
 **/*.log
+
+**/backups
+**/private_documents

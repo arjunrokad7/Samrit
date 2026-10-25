@@ -1,6 +1,7 @@
-const { spawn } = require("node:child_process");
+const { spawn, spawnSync } = require("node:child_process");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
+for(const file of ['migrate.cjs','backfill.cjs']){const result=spawnSync(process.execPath,[path.join(root,'scripts/db',file)],{cwd:root,stdio:'inherit'});if(result.status!==0)process.exit(result.status||1);}
 const children = [
   spawn(
     process.execPath,

@@ -167,3 +167,5 @@ and [demo walkthrough](docs/DEMO.md). Licensing terms are in LICENSE; required t
 
 The current palette, typography, logos, and Tailwind recipes are documented in
 [Design language](docs/DESIGN_LANGUAGE.md).
+
+Database schema, NYC directory imports, document OCR, private reviews and recovery: [Database and AI guide](docs/DATABASE_AND_AI.md).

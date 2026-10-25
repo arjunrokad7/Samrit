@@ -26,11 +26,12 @@ import { BatchCard, CustodyGallery, Empty, NetworkMap } from "./components";
 import Donor from "./Donor";
 import { CenterIntake, CenterProfileForm } from "./Center";
 import Driver from "./Driver";
+import Fleet, { FleetSummary } from "./Fleet";
 import { Dispatch, Centers, Moderation } from "./Admin";
 const labels = {
   DONOR: "Event organizer",
   NGO: "Distribution center",
-  VOLUNTEER: "Volunteer driver",
+  VOLUNTEER: "NGO driver",
   ADMIN: "Central NGO",
 };
 const nav = {
@@ -54,6 +55,7 @@ const nav = {
   ADMIN: [
     ["overview", "Overview", LayoutDashboard],
     ["dispatch", "Dispatch & routes", Truck],
+    ["fleet", "Drivers & vehicles", Truck],
     ["centers", "Distribution centers", Building2],
     ["custody", "Chain of custody", ShieldCheck],
     ["moderation", "Private quality reviews", MessageSquare],
@@ -88,6 +90,7 @@ const titles: Record<string, [string, string]> = {
     "The right food. The right destination.",
     "Match capacity, equipment, and time before dispatch.",
   ],
+  fleet: ["The people and vehicles behind every meal.", "Manage your NGO drivers, fleet equipment and availability."],
   centers: [
     "A network of welcoming tables.",
     "Review and approve distribution facilities.",
@@ -274,8 +277,10 @@ export default function Workspace() {
             </div>
           ) : (
             <>
+              {current === "fleet" && user.role === "ADMIN" && <Fleet data={data} refresh={refresh} />}
               {current === "overview" && (
                 <>
+                  {user.role === "ADMIN" && <FleetSummary data={data} />}
                   <div className={ui("sr-stats")}>
                     <div>
                       <span>BATCHES SHARED</span>
@@ -334,6 +339,7 @@ export default function Workspace() {
                         batches={data.batches}
                         centers={data.centers}
                         routes={data.routes}
+                        drivers={data.drivers}
                       />
                       <div className={ui("sr-map-legend")}>
                         <span>● Distribution centers</span>

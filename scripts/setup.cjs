@@ -40,7 +40,7 @@ try {
     "Admin credentials: SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD in backend/.env (not printed or included in the share ZIP).",
   );
   console.log(
-    "Next: npm run infra:up, npm run doctor -- --services, npm run dev",
+    "Next: npm run infra:up, npm run doctor -- --services, npm run db:migrate, npm run db:seed, npm run dev",
   );
   console.log("Then, in another terminal: npm run seed:demo");
 } catch (error) {

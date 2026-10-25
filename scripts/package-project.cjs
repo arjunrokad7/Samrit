@@ -21,6 +21,7 @@ const ROOT_FILES = new Set([
   "Testing Docs.docx",
 ]);
 const SOURCE_DIRS = new Set([
+  "database",
   "backend",
   "frontend",
   "shared",
@@ -40,6 +41,7 @@ const EXCLUDED_DIRS = new Set([
   "build",
   "coverage",
   "uploads",
+  "private_documents",
   ".screenshots",
   "releases",
   "backups",

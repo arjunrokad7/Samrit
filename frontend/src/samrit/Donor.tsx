@@ -21,7 +21,8 @@ import {
 } from "./api";
 import type { Overview, MenuItem, Handling } from "./api";
 import { Empty, PhotoField, QR } from "./components";
-type Draft = Omit<MenuItem, "verified"> & {
+type Draft = Omit<MenuItem, "verified" | "handlingRequirement"> & {
+  handlingRequirement: Handling | "";
   verified: boolean;
 };
 const newItem = (): Draft => ({
@@ -29,7 +30,7 @@ const newItem = (): Draft => ({
   ingredients: [],
   allergens: [],
   estimatedServings: 20,
-  handlingRequirement: "shelf_stable",
+  handlingRequirement: "",
   verified: false,
 });
 function localInput(date: Date) {
@@ -45,15 +46,6 @@ function localInput(date: Date) {
     .format(date)
     .replace(" ", "T");
 }
-function inferHandling(name: string): Handling {
-  return /ice cream|frozen|gelato/i.test(name)
-    ? "frozen"
-    : /salad|yogurt|milk|cheese/i.test(name)
-      ? "refrigerated"
-      : /soup|curry|rice|roast|hot|pasta/i.test(name)
-        ? "hot"
-        : "shelf_stable";
-}
 export default function Donor({
   data,
   refresh,
@@ -66,6 +58,8 @@ export default function Donor({
   const [items, setItems] = useState<Draft[]>([newItem()]);
   const [busy, setBusy] = useState(false);
   const [menu, setMenu] = useState<File | null>(null);
+  const [documentType, setDocumentType] = useState("menu");
+  const [documentIds, setDocumentIds] = useState<string[]>([]);
   const [source, setSource] = useState("Manual entry");
   const [coords, setCoords] = useState({ lat: REGION.lat, lng: REGION.lng });
   const [eventId, setEventId] = useState(data.events[0]?.eventId || "");
@@ -88,9 +82,18 @@ export default function Donor({
     try {
       const form = new FormData();
       form.append("image", menu);
+      form.append("documentType", documentType);
       const result = await request<{
+        documentId: string;
         items: Draft[];
-      }>("/api/llm/ocr", "POST", form);
+        mode: string;
+        message?: string;
+      }>("/api/event-documents", "POST", form);
+      setDocumentIds((current) => [...current, result.documentId]);
+      if (!result.items.length) {
+        toast.info(result.message || "Enter dishes manually.");
+        return;
+      }
       setItems(result.items.map((item) => ({ ...item, verified: false })));
       setSource("AI extracted · verify every ingredient and allergen");
       toast.success("Menu extracted. Please verify every dish.");
@@ -102,22 +105,33 @@ export default function Donor({
   }
   async function saveEvent(submit: React.FormEvent<HTMLFormElement>) {
     submit.preventDefault();
-    if (items.some((item) => !item.verified || !item.name.trim()))
+    if (
+      items.some(
+        (item) =>
+          !item.verified ||
+          !item.name.trim() ||
+          !item.handlingRequirement ||
+          item.estimatedServings < 1,
+      )
+    )
       return toast.error(
         "Verify every dish, its ingredients, and its allergens first.",
       );
     setBusy(true);
-    const form = new FormData(submit.currentTarget);
+    const formElement=submit.currentTarget;
+    const form = new FormData(formElement);
     try {
       await request("/api/events", "POST", {
         name: form.get("name"),
         scheduledAt: localInputToISO(String(form.get("scheduledAt"))),
         location: { ...coords, address: form.get("address") },
         items,
+        documentIds,
         notes: form.get("notes"),
       });
       await refresh();
       toast.success("Event and verified menu saved.");
+      setDocumentIds([]);setItems([newItem()]);setMenu(null);setSource("Manual entry");formElement.reset();
     } catch (error) {
       toast.error(errorMessage(error));
     } finally {
@@ -322,12 +336,27 @@ export default function Donor({
             Upload a catering menu or enter it manually. A person verifies the
             final ingredients, allergens, and handling.
           </p>
+          <label>
+            Document type
+            <select
+              value={documentType}
+              onChange={(e) => setDocumentType(e.target.value)}
+            >
+              <option value="menu">Menu</option>
+              <option value="invoice">Invoice</option>
+            </select>
+          </label>
+          <p className="text-xs">
+            Images and PDFs up to 5 MB are stored privately and sent to Gemini.
+            Confirm what was actually served; invoice ingredients alone do not
+            confirm a dish.
+          </p>
           <div className={ui("sr-menu-upload")}>
             <Camera />
             <input
               aria-label="Catering menu image"
               type="file"
-              accept="image/jpeg,image/png,image/webp"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
               onChange={(e) => setMenu(e.target.files?.[0] || null)}
             />
             <button
@@ -428,7 +457,7 @@ export default function Donor({
                       onChange={(e) =>
                         edit(index, {
                           name: e.target.value,
-                          handlingRequirement: inferHandling(e.target.value),
+
                           verified: false,
                         })
                       }
@@ -445,6 +474,20 @@ export default function Donor({
                     <Trash2 size={17} />
                   </button>
                 </div>
+                <label>
+                  Miscellaneous food notes
+                  <input
+                    value={String(item.metadata?.notes || "")}
+                    maxLength={2000}
+                    placeholder="Packaging, portion details or other notes"
+                    onChange={(e) =>
+                      edit(index, {
+                        metadata: { notes: e.target.value },
+                        verified: false,
+                      })
+                    }
+                  />
+                </label>
                 <label>
                   Ingredients · comma separated
                   <input
@@ -479,6 +522,7 @@ export default function Donor({
                   <label>
                     Handling · confirm suggestion
                     <select
+                      required
                       value={item.handlingRequirement}
                       onChange={(e) =>
                         edit(index, {
@@ -487,6 +531,7 @@ export default function Donor({
                         })
                       }
                     >
+                      <option value="">Select handling</option>
                       {["hot", "refrigerated", "frozen", "shelf_stable"].map(
                         (value) => (
                           <option key={value} value={value}>
@@ -529,7 +574,7 @@ export default function Donor({
                       edit(index, { verified: e.target.checked })
                     }
                   />
-                  I checked the dish, ingredients, allergens, servings, and
+                  I confirm this dish was provided and checked its ingredients, allergens, servings, and
                   handling.
                 </label>
               </div>

@@ -16,6 +16,9 @@ export interface Location {
   address: string;
 }
 export interface MenuItem {
+  sourceCandidateId?: string;
+  description?: string | null;
+  metadata?: Record<string, unknown>;
   name: string;
   ingredients: string[];
   allergens: string[];
@@ -32,6 +35,7 @@ export interface Proof {
   sha256: string;
 }
 export interface FoodBatch {
+  metadata?: Record<string, unknown>;
   batchId: string;
   donorId: string;
   donorEventId: string;
@@ -53,6 +57,7 @@ export interface FoodBatch {
   };
 }
 export interface CenterProfile {
+  metadata?: Record<string, unknown>;
   centerId: string;
   ownerId: string;
   name: string;
@@ -71,6 +76,7 @@ export interface CenterProfile {
   approved: boolean;
 }
 export interface DonorEvent {
+  metadata?: Record<string, unknown>;
   eventId: string;
   donorId: string;
   name: string;
@@ -82,6 +88,15 @@ export interface DonorEvent {
 export interface DispatchRoute {
   routeId: string;
   driverId: string;
+  vehicleId?: string; // Absent only on historical routes created before fleet management.
+  vehicleSnapshot?: {
+    name: string;
+    registration: string;
+    capacityServings: number;
+    capabilities: Handling[];
+  };
+  cancelledAt?: string;
+  cancellationReason?: string;
   centerId: string;
   status: "active" | "completed" | "cancelled";
   assignedBatches: string[];
@@ -94,6 +109,31 @@ export interface DispatchRoute {
     batchId: string;
     status: "pending" | "done";
   }[];
+}
+export interface FleetVehicle {
+  metadata?: Record<string, unknown>;
+  vehicleId: string;
+  name: string;
+  registration: string;
+  capacityServings: number;
+  capabilities: Handling[];
+  equipment: string[];
+  status: "ready" | "maintenance" | "inactive";
+  createdAt: string;
+  updatedAt: string;
+}
+export interface FleetDriver {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  isAvailable: boolean;
+  isActive: boolean;
+  latitude?: number;
+  longitude?: number;
+  locationUpdatedAt?: string;
+  locationSource?: "admin_base" | "driver_report" | "custody_scan";
 }
 export interface FeedbackReview {
   reviewId: string;

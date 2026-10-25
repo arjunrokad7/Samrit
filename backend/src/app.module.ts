@@ -96,7 +96,7 @@ import { SamritRecord } from './samrit/samrit.entity';
             UserNotification,
             SamritRecord,
           ],
-          synchronize: true,
+          synchronize: false,
           retryAttempts: 3,
           retryDelay: 3000,
           ssl: dbSslEnabled ? { rejectUnauthorized: false } : false,

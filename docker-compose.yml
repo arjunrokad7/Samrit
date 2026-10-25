@@ -69,6 +69,8 @@ services:
       - /app/backend/node_modules
       - ./shared:/app/shared
       - ./scripts:/app/scripts:ro
+      - ./database:/app/database:ro
+      - private_documents:/app/backend/private_documents
       - custody_photos:/app/backend/uploads
 
   # FRONTEND (React + Vite)
@@ -100,4 +102,5 @@ services:
 
 volumes:
   postgres_data:
+  private_documents:
   custody_photos:

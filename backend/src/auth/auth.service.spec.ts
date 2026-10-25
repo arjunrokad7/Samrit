@@ -100,7 +100,7 @@ describe('AuthService', () => {
         email: 'new@test.com',
         password: 'pass',
         name: 'New User',
-        role: 'donor',
+        role: 'DONOR',
         phone: '1234567890',
         address: '123 St',
         organizationName: 'Org',
@@ -134,12 +134,24 @@ describe('AuthService', () => {
         service.register({
           email: 'existing@test.com',
           password: 'pass',
+          role: 'DONOR',
         } as any),
       ).rejects.toThrow(ConflictException);
     });
   });
 
   // --- TEST SUITE 3: PROFILE MANAGEMENT (NEW) ---
+  describe('central NGO driver access', () => {
+    it('rejects public driver registration before creating a user', async () => {
+      await expect(service.register({ email: 'driver@test.com', password: 'Password123!', name: 'Driver', role: 'VOLUNTEER' } as any)).rejects.toThrow('provisioned by the central NGO');
+      expect(mockUserRepo.save).not.toHaveBeenCalled();
+    });
+    it.each(['transportCapabilities','vehicleType','vehicleNumber','isAvailable'])('rejects self-managed %s', async field => {
+      await expect(service.updateProfile('1', { [field]: field === 'isAvailable' ? true : ['hot'] })).rejects.toThrow('managed by the central NGO');
+      expect(mockUserRepo.update).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getProfile', () => {
     it('should return user details WITHOUT password', async () => {
       const mockUser = {

@@ -7,6 +7,7 @@ import api from "../services/api";
 import { errorMessage, REGION } from "./api";
 import type { SessionUser } from "./api";
 import { AuthContext, useSession } from "./session";
+import { useTheme } from './Theme';
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<SessionUser | null>(null);
   const [loading, setLoading] = useState(() => !!localStorage.getItem("token"));
@@ -45,10 +46,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 export function Brand({ light = false }: { light?: boolean }) {
+  const { theme } = useTheme();
   return (
     <Link to="/" className={ui("sr-brand")} aria-label="Samrit home">
       <img
-        src={light ? "/brand/samrit-light.png" : "/brand/samrit-dark.png"}
+        src={light || theme === 'dark' ? "/brand/samrit-light.png" : "/brand/samrit-dark.png"}
         alt="Samrit"
         draggable={false}
       />
@@ -111,6 +113,7 @@ export function AuthPage({ register = false }: { register?: boolean }) {
         </Link>
         <div className={ui("sr-auth-form")}>
           <span className={ui("sr-eyebrow")}>YOUR NEXT GOOD THING</span>
+          {register && <p className="mb-4 text-xs text-slate-600">Driver access is issued by your central NGO. If you have credentials, sign in.</p>}
           <h2>{register ? "Join the rescue." : "Welcome back."}</h2>
           <p>
             {register
@@ -134,7 +137,6 @@ export function AuthPage({ register = false }: { register?: boolean }) {
                   <select name="role">
                     <option value="DONOR">Event organizer / donor</option>
                     <option value="NGO">Distribution center</option>
-                    <option value="VOLUNTEER">Volunteer driver</option>
                   </select>
                 </label>
                 <label>
@@ -186,10 +188,10 @@ export function AuthPage({ register = false }: { register?: boolean }) {
             </Link>
           </p>
           <div className={ui("sr-note")}>
-            Hackathon accounts: donor@example.com, ngo@example.com,
-            volunteer@example.com
+            Hackathon accounts: donor@example.com, ngo@example.com
             <br />
             Password: <strong>Demo123!</strong>
+            <br />Drivers use the credentials issued by their central NGO.
           </div>
         </div>
       </main>

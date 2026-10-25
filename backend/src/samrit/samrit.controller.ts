@@ -24,7 +24,7 @@ import { memoryStorage } from 'multer';
 import { z } from 'zod';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SamritService } from './samrit.service';
-import { SamritAI } from './ai.service';
+import { EvidenceService } from './evidence.service';
 import {
   batchSchema,
   eventSchema,
@@ -34,6 +34,10 @@ import {
   scanSchema,
   reviewSchema,
   photoSchema,
+  vehicleSchema,
+  provisionDriverSchema,
+  manageDriverSchema,
+  gpsSchema,
 } from './contracts';
 const ok = (data: any, code = 200) => ({ success: true, data, code });
 function parse<T>(schema: z.ZodType<T>, value: unknown): T {
@@ -79,10 +83,88 @@ const uploadOptions = {
 export class SamritController {
   constructor(
     private service: SamritService,
-    private ai: SamritAI,
+    private evidence: EvidenceService,
   ) {}
   private actor(req: any) {
     return this.service.activeActor(req.user);
+  }
+  @Post('fleet/vehicles') async vehicle(
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    return ok(
+      await this.service.vehicle(
+        parse(vehicleSchema, body),
+        await this.actor(req),
+      ),
+      201,
+    );
+  }
+  @Put('fleet/vehicles/:id') async updateVehicle(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    return ok(
+      await this.service.vehicle(
+        parse(vehicleSchema, body),
+        await this.actor(req),
+        parse(z.uuid(), id),
+      ),
+    );
+  }
+  @Post('fleet/drivers') async provisionDriver(
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    return ok(
+      await this.service.provisionDriver(
+        parse(provisionDriverSchema, body),
+        await this.actor(req),
+      ),
+      201,
+    );
+  }
+  @Patch('fleet/drivers/:id') async manageDriver(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    return ok(
+      await this.service.manageDriver(
+        parse(z.uuid(), id),
+        parse(manageDriverSchema, body),
+        await this.actor(req),
+      ),
+    );
+  }
+  @Post('fleet/location') @HttpCode(200) async location(
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    return ok(
+      await this.service.reportLocation(
+        parse(gpsSchema.strict(), body),
+        await this.actor(req),
+      ),
+    );
+  }
+  @Patch('logistics/routes/:id/cancel') async cancelRoute(
+    @Param('id') id: string,
+    @Body() body: unknown,
+    @Req() req: any,
+  ) {
+    const input = parse(
+      z.object({ reason: z.string().trim().min(5).max(500) }).strict(),
+      body,
+    );
+    return ok(
+      await this.service.cancelRoute(
+        parse(z.uuid(), id),
+        input.reason,
+        await this.actor(req),
+      ),
+    );
   }
   @Get('samrit/overview') async overview(@Req() req: any) {
     return ok(await this.service.overview(await this.actor(req)));
@@ -211,13 +293,19 @@ export class SamritController {
   @Post('llm/ocr')
   @HttpCode(200)
   @UseInterceptors(FileInterceptor('image', uploadOptions))
-  async ocr(@UploadedFile() image: Express.Multer.File, @Req() req: any) {
-    this.service.require(await this.actor(req), ['DONOR']);
-    if (
-      !image ||
-      !['image/jpeg', 'image/png', 'image/webp'].includes(image.mimetype)
-    )
-      throw new BadRequestException('Upload a JPEG, PNG, or WebP menu image.');
-    return ok(await this.ai.menu(image));
+  async ocr(
+    @UploadedFile() image: Express.Multer.File,
+    @Req() req: any,
+    @Body() body: any,
+  ) {
+    const actor = await this.actor(req);
+    this.service.require(actor, ['DONOR']);
+    return ok(
+      await this.evidence.document(
+        image,
+        parse(z.enum(['menu', 'invoice']), body.documentType || 'menu'),
+        actor,
+      ),
+    );
   }
 }

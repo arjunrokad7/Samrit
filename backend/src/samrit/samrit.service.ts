@@ -1,3 +1,4 @@
+import { EvidenceService } from './evidence.service';
 import {
   Injectable,
   BadRequestException,
@@ -9,11 +10,13 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { EntityManager, Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
 import { randomUUID, createHash } from 'crypto';
+import * as bcrypt from 'bcrypt';
 import { mkdir, writeFile } from 'fs/promises';
 import { resolve } from 'path';
 import { SamritRecord } from './samrit.entity';
 import { User, UserRole } from '../auth/entities/user.entity';
 import { SamritAI } from './ai.service';
+import { RelationalStore } from '../database/relational-store';
 import type {
   FoodBatch,
   CenterProfile,
@@ -23,6 +26,7 @@ import type {
   CustodyScan,
   Location,
   Proof,
+  FleetVehicle,
 } from '../../../shared/types/samrit';
 
 export interface Actor {
@@ -72,6 +76,8 @@ export class SamritService {
     @InjectRepository(User) private users: Repository<User>,
     private config: ConfigService,
     private ai: SamritAI,
+    private store: RelationalStore = new RelationalStore(),
+    private evidence?: EvidenceService,
   ) {}
   require(actor: Actor, roles: string[]) {
     if (!roles.includes(actor.role))
@@ -88,30 +94,23 @@ export class SamritService {
     kind: string,
     manager = this.records.manager,
   ): Promise<T[]> {
-    return (
-      await manager.find(SamritRecord, {
-        where: { kind },
-        order: { createdAt: 'DESC' },
-      })
-    ).map((record) => record.payload);
+    return this.store.all<T>(kind, manager);
   }
   private async get<T>(
     kind: string,
     id: string,
     manager = this.records.manager,
   ): Promise<T> {
-    const record = await manager.findOne(SamritRecord, { where: { kind, id } });
-    if (!record) throw new NotFoundException(`${kind} not found`);
-    return record.payload;
+    return this.store.get<T>(kind, id, manager);
   }
   private async put(
     kind: string,
     id: string,
     payload: any,
-    manager = this.records.manager,
+    manager?: EntityManager,
   ) {
-    await manager.save(SamritRecord, { id, kind, payload });
-    return payload;
+    if (!manager) return this.tx((m) => this.store.put(kind, id, payload, m));
+    return this.store.put(kind, id, payload, manager);
   }
   async activeActor(actor: Actor) {
     const user = await this.users.findOne({ where: { id: actor.userId } });
@@ -152,15 +151,30 @@ export class SamritService {
         ),
     );
     const users =
-      actor.role === 'ADMIN'
+      actor.role === 'ADMIN' || actor.role === 'VOLUNTEER'
         ? await this.users.find({
-            where: { role: UserRole.VOLUNTEER, isActive: true },
-            select: ['id', 'name', 'isAvailable', 'latitude', 'longitude'],
+            where: {
+              role: UserRole.VOLUNTEER,
+              ...(actor.role === 'VOLUNTEER' ? { id: actor.userId } : {}),
+            },
+            select: [
+              'id',
+              'name',
+              'email',
+              'phone',
+              'address',
+              'isAvailable',
+              'isActive',
+              'latitude',
+              'longitude',
+            ],
           })
         : [];
     const scans = (await this.all<CustodyScan>('scan')).filter((scan) =>
       visible.some((batch) => batch.batchId === scan.batchId),
     );
+    const locations = await this.all<any>('driver_location');
+    const vehicles = await this.all<FleetVehicle>('vehicle');
     return {
       config: this.configData(),
       batches: visible,
@@ -186,8 +200,204 @@ export class SamritService {
       reviews:
         actor.role === 'ADMIN' ? await this.all<FeedbackReview>('review') : [],
       scans,
-      drivers: users,
+      drivers: users.map((user) => {
+        const location = locations.find((item) => item.driverId === user.id);
+        return {
+          ...user,
+          locationUpdatedAt: location?.timestamp,
+          locationSource: location?.source,
+        };
+      }),
+      vehicles: vehicles.filter(
+        (vehicle) =>
+          actor.role === 'ADMIN' ||
+          (actor.role === 'VOLUNTEER' &&
+            routes.some(
+              (route) =>
+                route.driverId === actor.userId &&
+                route.vehicleId === vehicle.vehicleId,
+            )),
+      ),
     };
+  }
+  async vehicle(input: any, actor: Actor, id?: string) {
+    this.require(actor, ['ADMIN']);
+    return this.tx(async (manager) => {
+      const vehicles = await this.all<FleetVehicle>('vehicle', manager);
+      const existing = id
+        ? await this.get<FleetVehicle>('vehicle', id, manager)
+        : null;
+      if (
+        id &&
+        (await this.all<DispatchRoute>('route', manager)).some(
+          (route) => route.status === 'active' && route.vehicleId === id,
+        )
+      )
+        throw new ConflictException(
+          'A vehicle on an active route cannot be edited. Finish or cancel its route first.',
+        );
+      if (
+        vehicles.some(
+          (vehicle) =>
+            vehicle.vehicleId !== id &&
+            vehicle.registration.toUpperCase() ===
+              input.registration.toUpperCase(),
+        )
+      )
+        throw new ConflictException(
+          'A vehicle with this registration already exists.',
+        );
+      const value: FleetVehicle = {
+        ...input,
+        registration: input.registration.toUpperCase(),
+        capabilities: [...new Set(input.capabilities)],
+        vehicleId: id || randomUUID(),
+        createdAt: existing?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      return this.put('vehicle', value.vehicleId, value, manager);
+    });
+  }
+  async provisionDriver(input: any, actor: Actor) {
+    this.require(actor, ['ADMIN']);
+    const hash = await bcrypt.hash(input.password, 12);
+    return this.tx(async (manager) => {
+      if (await manager.findOne(User, { where: { email: input.email } }))
+        throw new ConflictException('Email already exists.');
+      const user = manager.create(User, {
+        name: input.name,
+        email: input.email,
+        password: hash,
+        phone: input.phone,
+        role: UserRole.VOLUNTEER,
+        isVerified: true,
+        isActive: true,
+        isAvailable: input.isAvailable,
+        latitude: input.location.lat,
+        longitude: input.location.lng,
+        address: input.location.address,
+      });
+      await manager.save(User, user);
+      await this.put(
+        'driver_location',
+        user.id,
+        {
+          driverId: user.id,
+          lat: input.location.lat,
+          lng: input.location.lng,
+          timestamp: new Date().toISOString(),
+          source: 'admin_base',
+        },
+        manager,
+      );
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isAvailable: user.isAvailable,
+        isActive: user.isActive,
+      };
+    });
+  }
+  async manageDriver(id: string, input: any, actor: Actor) {
+    this.require(actor, ['ADMIN']);
+    return this.tx(async (manager) => {
+      const user = await manager.findOne(User, {
+        where: { id, role: UserRole.VOLUNTEER },
+      });
+      if (!user) throw new NotFoundException('Driver not found.');
+      if (
+        (input.isActive === false || input.location) &&
+        (await this.all<DispatchRoute>('route', manager)).some(
+          (route) => route.status === 'active' && route.driverId === id,
+        )
+      )
+        throw new ConflictException(
+          'Finish or cancel this driver’s active route before disabling the account or editing its base.',
+        );
+      const { location, ...fields } = input;
+      Object.assign(user, fields);
+      if (location) {
+        user.latitude = location.lat;
+        user.longitude = location.lng;
+        user.address = location.address;
+        await this.put(
+          'driver_location',
+          id,
+          {
+            driverId: id,
+            lat: location.lat,
+            lng: location.lng,
+            timestamp: new Date().toISOString(),
+            source: 'admin_base',
+          },
+          manager,
+        );
+      }
+      await manager.save(User, user);
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        isAvailable: user.isAvailable,
+        isActive: user.isActive,
+      };
+    });
+  }
+  async reportLocation(input: { lat: number; lng: number }, actor: Actor) {
+    this.require(actor, ['VOLUNTEER']);
+    return this.tx(async (manager) => {
+      await manager.update(
+        User,
+        { id: actor.userId },
+        { latitude: input.lat, longitude: input.lng },
+      );
+      return this.put(
+        'driver_location',
+        actor.userId,
+        {
+          driverId: actor.userId,
+          ...input,
+          timestamp: new Date().toISOString(),
+          source: 'driver_report',
+        },
+        manager,
+      );
+    });
+  }
+  async cancelRoute(id: string, reason: string, actor: Actor) {
+    this.require(actor, ['ADMIN']);
+    return this.tx(async (manager) => {
+      const route = await this.get<DispatchRoute>('route', id, manager);
+      if (route.status !== 'active')
+        throw new ConflictException('Only active routes can be cancelled.');
+      const batches = await Promise.all(
+        route.assignedBatches.map((batchId) =>
+          this.get<FoodBatch>('batch', batchId, manager),
+        ),
+      );
+      if (
+        batches.some(
+          (batch) =>
+            batch.status === 'in_transit' ||
+            !!batch.chainOfCustody.stage2_PickupPic,
+        )
+      )
+        throw new ConflictException(
+          'Food has already been collected. Complete the custody workflow or place the batch on a quality hold.',
+        );
+      for (const batch of batches)
+        if (batch.status === 'matched') {
+          batch.status = 'pending';
+          batch.driverId = null;
+          batch.centerId = null;
+          await this.put('batch', batch.batchId, batch, manager);
+        }
+      route.status = 'cancelled';
+      route.cancelledAt = new Date().toISOString();
+      route.cancellationReason = reason;
+      return this.put('route', id, route, manager);
+    });
   }
   async event(input: any, actor: Actor) {
     this.require(actor, ['DONOR']);
@@ -196,7 +406,11 @@ export class SamritService {
       eventId: randomUUID(),
       donorId: actor.userId,
     };
-    return this.put('event', event.eventId, event);
+    return this.tx(async (m) => {
+      await this.put('event', event.eventId, event, m);
+      await this.evidence?.linkDocuments(m, event.eventId, input, actor);
+      return event;
+    });
   }
   async center(input: any, actor: Actor) {
     this.require(actor, ['NGO']);
@@ -306,6 +520,38 @@ export class SamritService {
         throw new BadRequestException(
           'Split food requiring different handling into separate batches.',
         );
+      const previous = (await this.all<FoodBatch>('batch', manager)).filter(
+        (b) => b.donorEventId === event.eventId,
+      );
+      const names = new Set<string>();
+      for (const item of input.items) {
+        const original = event.items.find(
+          (i) =>
+            i.name === item.name &&
+            i.handlingRequirement === item.handlingRequirement,
+        );
+        const used = previous.reduce(
+          (sum, b) =>
+            sum +
+            b.items
+              .filter((i) => i.name === item.name)
+              .reduce((n, i) => n + i.estimatedServings, 0),
+          0,
+        );
+        if (
+          !original ||
+          names.has(item.name) ||
+          item.estimatedServings + used > original.estimatedServings ||
+          JSON.stringify([...item.allergens].sort()) !==
+            JSON.stringify([...original.allergens].sort()) ||
+          JSON.stringify(item.ingredients) !==
+            JSON.stringify(original.ingredients)
+        )
+          throw new BadRequestException(
+            'Leftovers must use confirmed event dishes and cannot exceed their remaining servings.',
+          );
+        names.add(item.name);
+      }
       const photo = await this.get<any>('photo', input.photoId, manager);
       if (photo.actorId !== actor.userId || photo.stage !== 1 || photo.batchId)
         throw new BadRequestException(
@@ -319,6 +565,7 @@ export class SamritService {
         eventName: event.name,
         location: event.location,
         items: input.items,
+        metadata: input.metadata || {},
         handlingRequirement: input.handlingRequirement,
         expiresAt: input.expiresAt,
         createdAt: new Date().toISOString(),
@@ -347,7 +594,10 @@ export class SamritService {
       sha256: photo.sha256,
     };
   }
-  async match(input: { batchId: string; driverId?: string }, actor: Actor) {
+  async match(
+    input: { batchId: string; driverId: string; vehicleId: string },
+    actor: Actor,
+  ) {
     this.require(actor, ['ADMIN']);
     return this.tx(async (manager) => {
       const batch = await this.get<FoodBatch>('batch', input.batchId, manager);
@@ -399,14 +649,31 @@ export class SamritService {
       const activeRoutes = (
         await this.all<DispatchRoute>('route', manager)
       ).filter((route) => route.status === 'active');
+      const vehicle = await this.get<FleetVehicle>(
+        'vehicle',
+        input.vehicleId,
+        manager,
+      );
+      if (
+        vehicle.status !== 'ready' ||
+        activeRoutes.some((route) => route.vehicleId === vehicle.vehicleId)
+      )
+        throw new ConflictException(
+          'This vehicle is unavailable or already assigned to an active route.',
+        );
+      if (
+        vehicle.capacityServings < servings(batch) ||
+        !vehicle.capabilities.includes(batch.handlingRequirement)
+      )
+        throw new BadRequestException(
+          'The selected vehicle lacks the required equipment or serving capacity.',
+        );
       const available = drivers.filter(
         (driver) =>
           driver.latitude != null &&
           driver.longitude != null &&
           !activeRoutes.some((route) => route.driverId === driver.id) &&
-          (!input.driverId || driver.id === input.driverId) &&
-          (batch.handlingRequirement === 'shelf_stable' ||
-            driver.transportCapabilities?.includes(batch.handlingRequirement)),
+          driver.id === input.driverId,
       );
       available.sort(
         (a, b) =>
@@ -427,7 +694,7 @@ export class SamritService {
       );
       if (!available.length)
         throw new BadRequestException(
-          'No available driver has the required transport equipment and a free route. Update driver capabilities or finish their route first.',
+          'The selected driver is unavailable, lacks a recorded location, or already has an active route.',
         );
       const options = eligible
         .flatMap((center) =>
@@ -471,6 +738,13 @@ export class SamritService {
       const route: DispatchRoute = {
         routeId: randomUUID(),
         driverId: batch.driverId,
+        vehicleId: vehicle.vehicleId,
+        vehicleSnapshot: {
+          name: vehicle.name,
+          registration: vehicle.registration,
+          capacityServings: vehicle.capacityServings,
+          capabilities: [...vehicle.capabilities],
+        },
         centerId: center.centerId,
         status: 'active',
         assignedBatches: [batch.batchId],
@@ -526,6 +800,25 @@ export class SamritService {
       lng: input.lng,
       timestamp: new Date().toISOString(),
     };
+    if (actor.role === 'VOLUNTEER') {
+      await manager.update(
+        User,
+        { id: actor.userId },
+        { latitude: input.lat, longitude: input.lng },
+      );
+      await this.put(
+        'driver_location',
+        actor.userId,
+        {
+          driverId: actor.userId,
+          lat: input.lat,
+          lng: input.lng,
+          timestamp: scan.timestamp,
+          source: 'custody_scan',
+        },
+        manager,
+      );
+    }
     return this.put('scan', scan.scanId, scan, manager);
   }
   async scan(input: any, actor: Actor) {
@@ -751,16 +1044,30 @@ export class SamritService {
       throw new BadRequestException(
         'Review target must belong to this handoff.',
       );
-    const analysis = await this.ai.flags(input.rawText);
+    const reviewId = randomUUID();
+    const analysis = await this.ai.analyze(
+      input.rawText,
+      { batchId: batch.batchId, custody: batch.chainOfCustody },
+      actor.userId,
+      reviewId,
+    );
     const review: FeedbackReview = {
       ...input,
-      reviewId: randomUUID(),
+      reviewId,
       authorId: actor.userId,
       aiParsedFlags: analysis.flags,
       analysisMode: analysis.mode,
       createdAt: new Date().toISOString(),
     };
-    await this.put('review', review.reviewId, review);
+    await this.tx(async (m) => {
+      await this.put('review', review.reviewId, review, m);
+      await this.evidence?.saveAnalysis(
+        review.reviewId,
+        'handoff',
+        analysis,
+        m,
+      );
+    });
     return { reviewId: review.reviewId, received: true }; // Analysis is central-NGO only.
   }
 }

@@ -215,10 +215,14 @@ export function CenterProfileForm({
       </section>
       <aside className={ui("sr-panel sr-fit")}>
         <span className={ui("sr-eyebrow")}>YOUR FRONT DOOR</span>
-        <h3>Location QR</h3>
+        <h3>Venue check-in QR</h3>
         {center ? (
           <>
-            <QR value={center.locationQrCode} label={center.name} />
+            <QR
+              value={center.locationQrCode}
+              label={center.name}
+              caption="One venue code for deliveries and meal-visitor check-in. Visitor arrival location is optional."
+            />
             <div className={ui("sr-callout")}>
               <CheckCircle2 />
               {center.approved
@@ -226,8 +230,10 @@ export function CenterProfileForm({
                 : "Awaiting central NGO approval"}
             </div>
             <p>
-              Display at the entrance. Drivers scan this when arriving. Staff
-              scan the container sticker before completing intake.
+              Display this single QR at the entrance. Drivers scan it for
+              deliveries; meal visitors scan it to check in. Visitors finish
+              their visit and leave a private review in the app. No exit QR is
+              needed. Staff still scan container stickers for intake.
             </p>
           </>
         ) : (

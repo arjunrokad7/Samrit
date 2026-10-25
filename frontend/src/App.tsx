@@ -7,29 +7,37 @@ import Consumer from "./samrit/Consumer";
 import Legal from "./samrit/Legal";
 import ConsumerCheckIn from "./samrit/ConsumerCheckIn";
 import { ui } from "./samrit/design";
+import { ThemeProvider, ThemeToggle, useTheme } from "./samrit/Theme";
+function Notifications() {
+  const { theme } = useTheme();
+  return <Toaster theme={theme} position="top-right" richColors closeButton />;
+}
 export default function App() {
   return (
-    <BrowserRouter>
-      <AuthProvider>
-        <div className={ui("sr-design")}>
-          <Toaster position="top-right" richColors closeButton />
-          <Routes>
-            <Route path="/" element={<Landing />} />
-            <Route path="/login" element={<AuthPage />} />
-            <Route path="/register" element={<AuthPage register />} />
-            <Route path="/consumer" element={<Consumer />} />
-            <Route path="/consumer/check-in" element={<ConsumerCheckIn />} />
-            <Route path="/terms" element={<Legal />} />
-            <Route path="/regulations" element={<Legal regulations />} />
-            <Route path="/dashboard/*" element={<Workspace />} />
-            <Route
-              path="/admin-dashboard"
-              element={<Navigate to="/dashboard?view=dispatch" replace />}
-            />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </div>
-      </AuthProvider>
-    </BrowserRouter>
+    <ThemeProvider>
+      <BrowserRouter>
+        <AuthProvider>
+          <div className={ui("sr-design")}>
+            <Notifications />
+            <ThemeToggle />
+            <Routes>
+              <Route path="/" element={<Landing />} />
+              <Route path="/login" element={<AuthPage />} />
+              <Route path="/register" element={<AuthPage register />} />
+              <Route path="/consumer" element={<Consumer />} />
+              <Route path="/consumer/check-in" element={<ConsumerCheckIn />} />
+              <Route path="/terms" element={<Legal />} />
+              <Route path="/regulations" element={<Legal regulations />} />
+              <Route path="/dashboard/*" element={<Workspace />} />
+              <Route
+                path="/admin-dashboard"
+                element={<Navigate to="/dashboard?view=dispatch" replace />}
+              />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </div>
+        </AuthProvider>
+      </BrowserRouter>
+    </ThemeProvider>
   );
 }

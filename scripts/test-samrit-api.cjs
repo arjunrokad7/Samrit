@@ -10,6 +10,7 @@ const {
 } = require("./seed-samrit.cjs");
 const run = randomUUID().slice(0, 8);
 const ids = [];
+const fleetIds = [];
 let checks = 0;
 async function expectStatus(endpoint, method, body, token, status) {
   await call(endpoint, method, body, token, status);
@@ -42,11 +43,17 @@ async function main() {
     );
     const donor = await register("DONOR");
     const centerUser = await register("NGO");
-    const driver = await register("VOLUNTEER");
     const admin = await login(
       process.env.SUPER_ADMIN_EMAIL || "admin@samrit.local",
       process.env.SUPER_ADMIN_PASSWORD || "SecureAdmin123!",
     );
+    await expectStatus('/auth/register', 'POST', { email: `samrit-test-${run}-blocked@example.com`, password: 'TestOnly123!', name: 'Uninvited driver', role: 'VOLUNTEER' }, undefined, 400);
+    const provisioned = await call('/api/fleet/drivers', 'POST', { email: `samrit-test-${run}-driver@example.com`, password: 'TestOnly123!', name: `Test ${run} driver`, isAvailable: true, location: pickup }, admin.token);
+    ids.push(provisioned.id);
+    const driver = await login(`samrit-test-${run}-driver@example.com`, 'TestOnly123!');
+    const vehicle = await call('/api/fleet/vehicles', 'POST', { name: `Test ${run} truck`, registration: `TEST-${run}`, capacityServings: 100, capabilities: ['shelf_stable'], equipment: [], status: 'ready' }, admin.token);
+    fleetIds.push(vehicle.vehicleId);
+    await expectStatus('/api/fleet/vehicles', 'POST', { name: 'Unauthorized', registration: `DENY-${run}`, capacityServings: 100, capabilities: ['hot'], equipment: [], status: 'ready' }, donor.token, 403);
     await expectStatus(
       "/api/samrit/overview",
       "GET",
@@ -104,7 +111,7 @@ async function main() {
         name: `Test ${run} Event`,
         scheduledAt: new Date(Date.now() - 3600000).toISOString(),
         location: eventLocation,
-        items: [item],
+        items: [{...item,estimatedServings:20}],
         notes: "Integration test fixture",
       },
       donor.token,
@@ -129,24 +136,21 @@ async function main() {
     await expectStatus(
       "/api/logistics/match",
       "POST",
-      { batchId: batch.batchId },
+      { batchId: batch.batchId, driverId: driver.user.id, vehicleId: vehicle.vehicleId },
       donor.token,
       403,
     );
-    await call("/auth/profile", "PATCH", { isAvailable: true }, driver.token);
+    await expectStatus('/auth/profile', 'PATCH', { isAvailable: true }, driver.token, 403);
     await expectStatus(
       "/api/logistics/match",
       "POST",
-      { batchId: batch.batchId, driverId: driver.user.id },
+      { batchId: batch.batchId, driverId: driver.user.id, vehicleId: vehicle.vehicleId },
       admin.token,
       400,
     ); // No hot transport.
-    await call(
-      "/auth/profile",
-      "PATCH",
-      { transportCapabilities: ["hot"], latitude: gps.lat, longitude: gps.lng },
-      driver.token,
-    );
+    await expectStatus('/auth/profile', 'PATCH', { transportCapabilities: ['hot'] }, driver.token, 403);
+    await call(`/api/fleet/vehicles/${vehicle.vehicleId}`, 'PUT', { name: `Test ${run} truck`, registration: `TEST-${run}`, capacityServings: 100, capabilities: ['shelf_stable','hot'], equipment: ['Hot holding boxes'], status: 'ready' }, admin.token);
+    await call('/api/fleet/location', 'POST', gps, driver.token);
     const matches = await Promise.all(
       [1, 2].map(() =>
         fetch("http://localhost:3000/api/logistics/match", {
@@ -158,6 +162,7 @@ async function main() {
           body: JSON.stringify({
             batchId: batch.batchId,
             driverId: driver.user.id,
+            vehicleId: vehicle.vehicleId,
           }),
         }),
       ),
@@ -167,6 +172,14 @@ async function main() {
       [200, 409],
     );
     checks++;
+    const assignedOverview = await call('/api/samrit/overview', 'GET', undefined, admin.token);
+    const assignedRoute = assignedOverview.routes.find(route => route.assignedBatches.includes(batch.batchId));
+    assert.equal(assignedRoute.vehicleId, vehicle.vehicleId); checks++;
+    const secondEvidence = await photo(1, eventLocation, donor.token);
+    const secondBatch = await call('/api/batches', 'POST', { ...input, photoId: secondEvidence.photoId }, donor.token);
+    await expectStatus('/api/logistics/match', 'POST', { batchId: secondBatch.batchId, driverId: driver.user.id, vehicleId: vehicle.vehicleId }, admin.token, 409);
+    await expectStatus(`/api/fleet/vehicles/${vehicle.vehicleId}`, 'PUT', { name: `Test ${run} truck`, registration: `TEST-${run}`, capacityServings: 100, capabilities: ['hot'], equipment: [], status: 'maintenance' }, admin.token, 409);
+    await expectStatus(`/api/fleet/drivers/${driver.user.id}`, 'PATCH', { isActive: false }, admin.token, 409);
     await assert.rejects(
       photo(2, eventLocation, driver.token, batch.batchId),
       /Scan the event QR first/,
@@ -319,6 +332,19 @@ async function main() {
       admin.token,
       409,
     );
+    const assignment = { batchId: secondBatch.batchId, driverId: driver.user.id, vehicleId: vehicle.vehicleId };
+    const vehicleBody = { name: `Test ${run} truck`, registration: `TEST-${run}`, capacityServings: 100, capabilities: ['hot'], equipment: ['Hot holding boxes'], status: 'ready' };
+    await call(`/api/fleet/vehicles/${vehicle.vehicleId}`, 'PUT', { ...vehicleBody, status: 'maintenance' }, admin.token);
+    await expectStatus('/api/logistics/match', 'POST', assignment, admin.token, 409);
+    await call(`/api/fleet/vehicles/${vehicle.vehicleId}`, 'PUT', { ...vehicleBody, capacityServings: 5 }, admin.token);
+    await expectStatus('/api/logistics/match', 'POST', assignment, admin.token, 400);
+    await call(`/api/fleet/vehicles/${vehicle.vehicleId}`, 'PUT', vehicleBody, admin.token);
+    const releasedMatch = await call('/api/logistics/match', 'POST', assignment, admin.token);
+    checks++;
+    await call(`/api/logistics/routes/${releasedMatch.route.routeId}/cancel`, 'PATCH', { reason: 'Integration test: reassignment before pickup' }, admin.token);
+    const rematched = await call('/api/logistics/match', 'POST', assignment, admin.token);
+    assert.equal(rematched.route.vehicleId, vehicle.vehicleId); checks++;
+    await call(`/api/batches/${secondBatch.batchId}/reject`, 'PATCH', { reason: 'Integration fixture cleanup quality hold' }, admin.token);
     console.log(
       `PASS: ${checks} API checks, including complete custody, authorization, privacy, GPS, proof reuse, transport, and concurrent dispatch.`,
     );
@@ -333,10 +359,16 @@ async function main() {
       await db.connect();
       try {
         await db.query("BEGIN");
+        const locationIds=(await db.query('SELECT location_id FROM food.donor_events WHERE donor_id=ANY($1::uuid[]) UNION SELECT location_id FROM directory.partner_centers WHERE owner_id=ANY($1::uuid[]) UNION SELECT b.location_id FROM food.food_batches b WHERE donor_id=ANY($1::uuid[]) UNION SELECT s.location_id FROM logistics.route_stops s JOIN logistics.routes r ON r.id=s.route_id WHERE r.driver_id=ANY($1::uuid[])',[ids])).rows.map(r=>r.location_id);
+        for(const kind of ['route','review','scan','batch','photo','center','event','driver_location','vehicle'])await db.query('DELETE FROM app.domain_records WHERE kind=$1 AND (actor_id=ANY($2::uuid[]) OR id=ANY($3::uuid[]))',[kind,ids,fleetIds]);
+        await db.query('DELETE FROM directory.providers WHERE organization_id=ANY($1::uuid[])',[ids]);
+        await db.query('DELETE FROM directory.locations WHERE id=ANY($1::uuid[])',[locationIds]);
+        await db.query('DELETE FROM identity.organizations WHERE owner_id=ANY($1::uuid[])',[ids]);
         await db.query(
           `DELETE FROM samrit_record WHERE payload->>'donorId' = ANY($1::text[]) OR payload->>'ownerId' = ANY($1::text[]) OR payload->>'driverId' = ANY($1::text[]) OR payload->>'actorId' = ANY($1::text[]) OR payload->>'authorId' = ANY($1::text[])`,
           [ids],
         );
+        if (fleetIds.length) await db.query("DELETE FROM samrit_record WHERE id = ANY($1::uuid[])", [fleetIds]);
         await db.query('DELETE FROM "user" WHERE id = ANY($1::uuid[])', [ids]);
         await db.query("COMMIT");
       } finally {

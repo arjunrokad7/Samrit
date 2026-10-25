@@ -1,103 +1,311 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ThumbsDown, ThumbsUp } from 'lucide-react';
-import { Brand } from './Auth';
-import { ScanField } from './components';
-import { PublicFooter, TermsNotice } from './PublicLinks';
-import { ui } from './design';
-
-type VisitScan = {
-  venueId: string;
-  phase: 'entry' | 'exit';
-  recordedAt: string;
-  method: 'camera' | 'manual';
-  location: { latitude: number; longitude: number; accuracyMeters: number; observedAt: string } | null;
-  locationStatus: 'captured' | 'unavailable';
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { ThumbsDown, ThumbsUp } from "lucide-react";
+import { Brand } from "./Auth";
+import { ScanField } from "./components";
+import { PublicFooter, TermsNotice } from "./PublicLinks";
+import { ui } from "./design";
+type Coordinates = {
+  latitude: number;
+  longitude: number;
+  accuracyMeters: number;
 };
-
-export function parseVisitCode(value: string, phase: 'entry' | 'exit', venueId?: string) {
-  const match = /^samrit:visit:([a-z0-9-]{1,80}):(entry|exit)$/.exec(value.trim());
-  if (!match || match[2] !== phase) throw new Error(`Use a valid ${phase} venue code.`);
-  if (venueId && match[1] !== venueId) throw new Error('Scan the exit code for the same venue where you checked in.');
-  return match[1];
+type Visit = {
+  visitId: string;
+  secret: string;
+  venueId: string;
+  recordedAt: string;
+  location: Coordinates | null;
+};
+async function api(path: string, body: unknown) {
+  const response = await fetch(
+    (import.meta.env.VITE_API_URL || "http://localhost:3000") +
+      "/api/consumer/visits/" +
+      path,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    },
+  );
+  const result = await response.json();
+  if (!response.ok)
+    throw Error(result.message || result.error || "Please try again.");
+  return result.data;
 }
-
-async function captureLocation(): Promise<VisitScan['location']> {
+async function location(): Promise<Coordinates | null> {
   if (!navigator.geolocation) return null;
-  return new Promise((resolve) => navigator.geolocation.getCurrentPosition(
-    ({ coords, timestamp }) => resolve({ latitude: coords.latitude, longitude: coords.longitude, accuracyMeters: coords.accuracy, observedAt: new Date(timestamp).toISOString() }),
-    () => resolve(null),
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
-  ));
+  return new Promise((resolve) =>
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) =>
+        resolve({
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          accuracyMeters: coords.accuracy,
+        }),
+      () => resolve(null),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 },
+    ),
+  );
 }
-
 export default function ConsumerCheckIn() {
-  const [entry, setEntry] = useState<VisitScan | null>(null);
-  const [exit, setExit] = useState<VisitScan | null>(null);
-  const [code, setCode] = useState('');
-  const [exitCode, setExitCode] = useState('');
-  const [expanded, setExpanded] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-  const [sentiment, setSentiment] = useState('');
-  const [details, setDetails] = useState('');
-  const [complete, setComplete] = useState(false);
-  const [preview, setPreview] = useState<object | null>(null);
-
-  async function record(value: string, phase: 'entry' | 'exit', method: VisitScan['method']) {
-    if (busy || (phase === 'entry' ? entry : exit)) return;
-    setError('');
+  const [visit, setVisit] = useState<Visit | null>(null),
+    [code, setCode] = useState(""),
+    [finishedAt, setFinishedAt] = useState(""),
+    [busy, setBusy] = useState(false),
+    [error, setError] = useState(""),
+    [sentiment, setSentiment] = useState(""),
+    [details, setDetails] = useState(""),
+    [complete, setComplete] = useState(false);
+  async function checkIn(value: string, method: "manual" | "camera") {
+    if (busy || visit) return;
+    setBusy(true);
+    setError("");
     try {
-      const venueId = parseVisitCode(value, phase, entry?.venueId);
-      const recordedAt = new Date().toISOString();
-      if (entry && Date.parse(recordedAt) < Date.parse(entry.recordedAt)) throw new Error('Your device clock changed. Start a new visit.');
-      setBusy(true);
-      const location = await captureLocation();
-      const scan: VisitScan = { venueId, phase, recordedAt, method, location, locationStatus: location ? 'captured' : 'unavailable' };
-      if (phase === 'entry') setEntry(scan); else setExit(scan);
-    } catch (e) { setError(e instanceof Error ? e.message : 'Could not record this code. Please try again.'); }
-    finally { setBusy(false); }
+      const coordinates = await location();
+      const data = await api("scan", {
+        code: value.trim(),
+        phase: "entry",
+        method,
+        deviceRecordedAt: new Date().toISOString(),
+        location: coordinates,
+      });
+      setVisit({ ...data, location: coordinates });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Check-in failed.");
+    } finally {
+      setBusy(false);
+    }
   }
-
-  const elapsed = entry && exit ? Math.max(0, Date.parse(exit.recordedAt) - Date.parse(entry.recordedAt)) : null;
-  return <div className="min-h-screen bg-slate-50 text-samrita-charcoal">
-    <nav className={ui('sr-public-nav')}><Brand /><Link to="/consumer">Back to meals</Link></nav>
-    <main className="mx-auto max-w-2xl px-6 py-10">
-      <span className={ui('sr-eyebrow')}>YOUR VISIT, YOUR VOICE</span>
-      <h1 className="mt-4 text-4xl">A warm welcome starts here.</h1>
-      <p className="my-5 text-sm leading-relaxed">Check in at the entrance. After your meal or visit, scan the exit code to unlock your private, anonymous review. You can review a visit even if you did not receive food.</p>
-      <TermsNotice />
-      <aside className="my-6 rounded-2xl border border-samrita-teal/30 bg-white p-5 text-sm">Frontend preview: codes are not authenticated and no review is saved or sent. Your visit stays in memory until you leave or reload this page. Location is requested at each scan; declining it does not prevent a review. A future submission would include precise location and visit times, which may identify a visit even without a name.</aside>
-      <section className={ui('sr-panel')}>
-        <h2 className="text-2xl">1. Scan your entry QR</h2>
-        {!entry ? <>
-          <p className="mt-3 text-sm">Use the venue’s entry QR or enter its printed code.</p>
-          <ScanField label="Entry QR code" value={code} onChange={setCode} onScan={(value) => void record(value, 'entry', 'camera')} />
-          <button className={ui('sr-button')} disabled={busy || !code.trim()} onClick={() => void record(code, 'entry', 'manual')}>Record entry code</button>
-          <details className="mt-4 text-xs"><summary className="cursor-pointer text-samrita-teal">Try a fictional demo visit</summary><p className="my-3">Entry: samrit:visit:east-village:entry<br />Exit: samrit:visit:east-village:exit</p><button className={ui('sr-text-link')} disabled={busy} onClick={() => setCode('samrit:visit:east-village:entry')}>Fill demo entry code</button></details>
-        </> : <div role="status" className="mt-3 text-sm"><p>Checked in at {entry.venueId}.</p><p>Entry recorded: {new Date(entry.recordedAt).toLocaleTimeString('en-US', { timeZone: 'America/New_York' })} Eastern.</p><p>{entry.location ? `Location accuracy: ±${Math.round(entry.location.accuracyMeters)} m.` : 'Location unavailable; this visit can still be reviewed.'}</p></div>}
-      </section>
-      {entry && <section className={ui('sr-panel')}>
-        <h2 className="text-2xl">2. After your visit</h2>
-        <button className={`${ui('sr-button')} mt-5 !whitespace-normal`} aria-expanded={expanded} aria-controls="private-review" onClick={() => setExpanded(!expanded)}>Leave a private anonymous review</button>
-        {expanded && <div id="private-review" className="mt-6 border-t border-slate-200 pt-5">
-          {!exit ? <><h3 className="text-xl">Scan the venue’s exit QR</h3><ScanField label="Exit QR code" value={exitCode} onChange={setExitCode} onScan={(value) => void record(value, 'exit', 'camera')} /><button className={ui('sr-button')} disabled={busy || !exitCode.trim()} onClick={() => void record(exitCode, 'exit', 'manual')}>Record exit code</button></> : <>
-            <p role="status" className="mb-4 text-sm">Exit recorded. Visit duration: {Math.floor((elapsed ?? 0) / 60000)} minutes. {exit.location ? `Exit location accuracy: ±${Math.round(exit.location.accuracyMeters)} m.` : 'Exit location unavailable.'}</p>
-            <p className="mb-4 text-xs text-slate-600">Timing measures your recorded visit, not queue time or review reliability. No confidence score is calculated here.</p>
-            <fieldset disabled={complete}><legend className="mb-3 font-semibold">How was your experience?</legend><div className="flex flex-wrap gap-3">
-              <button className={ui(`sr-button ${sentiment === 'positive' ? '' : 'sr-secondary'}`)} aria-pressed={sentiment === 'positive'} onClick={() => setSentiment('positive')}><ThumbsUp size={18} />Good experience</button>
-              <button className={ui(`sr-button ${sentiment === 'negative' ? '' : 'sr-secondary'}`)} aria-pressed={sentiment === 'negative'} onClick={() => setSentiment('negative')}><ThumbsDown size={18} />Needs attention</button>
-            </div><label>Optional details<textarea maxLength={3000} value={details} onChange={(e) => setDetails(e.target.value)} placeholder="Tell us about your visit. Please avoid names or identifying details." /></label>
-            <p className="mb-4 text-xs text-slate-600">Intended for private central NGO review, never public ratings. This preview does not collect your name or account.</p>
-            <button className={ui('sr-button')} disabled={!sentiment} onClick={() => { setPreview({ schemaVersion: 1, entry, exit, elapsedMilliseconds: elapsed, sentiment, details, verification: 'unverified-frontend-preview' }); setComplete(true); }}>Preview private review</button></fieldset>
-            {complete && <p role="status" className="mt-4 text-sm">Review preview complete. Nothing has been saved or sent.</p>}
-            {preview && <details className="mt-4 text-xs"><summary className="cursor-pointer text-samrita-teal">Preview captured visit data</summary><pre className="mt-3 max-h-80 overflow-auto rounded-2xl bg-slate-100 p-4">{JSON.stringify(preview, null, 2)}</pre></details>}
-          </>}
-        </div>}
-      </section>}
-      {busy && <p role="status" className="my-4 text-sm">Recording your visit and requesting location…</p>}
-      {error && <p role="alert" className="my-4 text-sm text-red-700">{error}</p>}
-      {entry && <button className={`${ui('sr-text-link')} my-5`} disabled={busy} onClick={() => { setEntry(null); setExit(null); setCode(''); setExitCode(''); setExpanded(false); setSentiment(''); setDetails(''); setComplete(false); setPreview(null); setError(''); }}>Clear visit and start again</button>}
-    </main><PublicFooter />
-  </div>;
+  async function finish() {
+    if (!visit || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const data = await api("finish", {
+        visitId: visit.visitId,
+        secret: visit.secret,
+      });
+      setFinishedAt(data.finishedAt);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not finish visit.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function submit() {
+    if (!visit || !finishedAt || busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      await api("review", {
+        visitId: visit.visitId,
+        secret: visit.secret,
+        sentiment,
+        rawText: details,
+      });
+      setComplete(true);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Review could not be submitted.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <div className="flex min-h-dvh flex-col bg-slate-50 text-samrita-charcoal">
+      <nav className={`${ui("sr-public-nav")} w-full shrink-0`}>
+        <Brand />
+        <Link to="/consumer">Back to meals</Link>
+      </nav>
+      <main className="mx-auto w-full max-w-2xl flex-1 px-6 py-10">
+        <span className={ui("sr-eyebrow")}>YOUR VISIT, YOUR VOICE</span>
+        <h1 className="mt-4 text-4xl">A warm welcome starts here.</h1>
+        <p className="my-5 text-sm leading-relaxed">
+          Scan the venue's check-in QR when you arrive. After your meal or
+          visit, tap Finish visit and leave a review. You can review your visit
+          even if you did not receive food. No exit QR is needed.
+        </p>
+        <TermsNotice />
+        <aside className="my-6 rounded-2xl border border-samrita-teal/30 bg-white p-5 text-sm">
+          Your check-in and review are saved privately for the central NGO.
+          Arrival location is optional; no exit location is collected. Precise
+          times and location can identify a visit without a name. Gemini
+          receives review and visit evidence for consistency analysis. Demo
+          venues are fictional. Keep this page open until you finish your visit.
+        </aside>
+        <section className={ui("sr-panel")}>
+          <h2 className="text-2xl">1. Scan the venue check-in QR</h2>
+          {!visit ? (
+            <>
+              <p className="mt-3 text-sm">
+                Use the same venue QR displayed for meal visitors and delivery
+                drivers.
+              </p>
+              <ScanField
+                label="Venue check-in QR code"
+                value={code}
+                onChange={setCode}
+                onScan={(value) => void checkIn(value, "camera")}
+              />
+              <button
+                className={ui("sr-button")}
+                disabled={busy || !code.trim()}
+                onClick={() => void checkIn(code, "manual")}
+              >
+                Check in
+              </button>
+              <details className="mt-4 text-xs">
+                <summary className="cursor-pointer text-samrita-teal">
+                  Try a fictional demo visit
+                </summary>
+                <p className="my-3">
+                  Demo check-in: samrit:visit:east-village:entry
+                </p>
+                <button
+                  className={ui("sr-text-link")}
+                  disabled={busy}
+                  onClick={() => setCode("samrit:visit:east-village:entry")}
+                >
+                  Fill demo check-in code
+                </button>
+              </details>
+            </>
+          ) : (
+            <div role="status" className="mt-3 text-sm">
+              <p>You're checked in.</p>
+              <p>
+                Arrival recorded:{" "}
+                {new Date(visit.recordedAt).toLocaleTimeString("en-US", {
+                  timeZone: "America/New_York",
+                })}{" "}
+                Eastern.
+              </p>
+              <p>
+                {visit.location
+                  ? `Location accuracy: �${Math.round(visit.location.accuracyMeters)} m.`
+                  : "Location unavailable; this visit can still be reviewed."}
+              </p>
+            </div>
+          )}
+        </section>
+        {visit && (
+          <section className={ui("sr-panel")}>
+            <h2 className="text-2xl">2. After your visit</h2>
+            {!finishedAt ? (
+              <>
+                <p className="my-4 text-sm">
+                  Finished your meal or leaving without food? Finish your visit
+                  to open your private review.
+                </p>
+                <button
+                  className={ui("sr-button !whitespace-normal")}
+                  disabled={busy}
+                  onClick={() => void finish()}
+                >
+                  Finish visit and leave a review
+                </button>
+              </>
+            ) : (
+              <>
+                <p role="status" className="my-4 text-sm">
+                  Visit finished. Approximate time since check-in:{" "}
+                  {Math.max(
+                    0,
+                    Math.floor(
+                      (Date.parse(finishedAt) - Date.parse(visit.recordedAt)) /
+                        60000,
+                    ),
+                  )}{" "}
+                  minutes. This records when you pressed Finish, not a verified
+                  departure or queue time.
+                </p>
+                <fieldset disabled={complete || busy}>
+                  <legend className="mb-3 font-semibold">
+                    Leave a private anonymous review
+                  </legend>
+                  <div className="flex flex-wrap gap-3">
+                    <button
+                      className={ui(
+                        `sr-button ${sentiment === "positive" ? "" : "sr-secondary"}`,
+                      )}
+                      aria-pressed={sentiment === "positive"}
+                      onClick={() => setSentiment("positive")}
+                    >
+                      <ThumbsUp size={18} />
+                      Good experience
+                    </button>
+                    <button
+                      className={ui(
+                        `sr-button ${sentiment === "negative" ? "" : "sr-secondary"}`,
+                      )}
+                      aria-pressed={sentiment === "negative"}
+                      onClick={() => setSentiment("negative")}
+                    >
+                      <ThumbsDown size={18} />
+                      Needs attention
+                    </button>
+                  </div>
+                  <label>
+                    Optional details
+                    <textarea
+                      maxLength={3000}
+                      value={details}
+                      onChange={(e) => setDetails(e.target.value)}
+                      placeholder="Tell us about your visit. Please avoid names or identifying details."
+                    />
+                  </label>
+                  <p className="mb-4 text-xs text-slate-600">
+                    Private central NGO review, never public ratings. No name or
+                    account is required.
+                  </p>
+                  <button
+                    className={ui("sr-button")}
+                    disabled={!sentiment || busy}
+                    onClick={() => void submit()}
+                  >
+                    Submit private review
+                  </button>
+                </fieldset>
+              </>
+            )}
+            {complete && (
+              <p role="status" className="mt-4 text-sm">
+                Your private review was received for central NGO review.
+              </p>
+            )}
+          </section>
+        )}
+        {busy && (
+          <p role="status" className="my-4 text-sm">
+            Saving your visit�
+          </p>
+        )}
+        {error && (
+          <p role="alert" className="my-4 text-sm text-red-700">
+            {error}
+          </p>
+        )}
+        {visit && (
+          <button
+            className={`${ui("sr-text-link")} my-5`}
+            disabled={busy}
+            onClick={() => {
+              setVisit(null);
+              setFinishedAt("");
+              setCode("");
+              setSentiment("");
+              setDetails("");
+              setComplete(false);
+              setError("");
+            }}
+          >
+            Start another visit
+          </button>
+        )}
+      </main>
+      <PublicFooter />
+    </div>
+  );
 }

@@ -19,7 +19,13 @@
     "infra:stop": "docker compose stop postgres redis",
     "dev:backend": "npm --prefix backend run start:dev",
     "dev:frontend": "npm --prefix frontend run dev",
-    "test:handoff": "node --test scripts/tests/handoff.test.cjs"
+    "test:handoff": "node --test scripts/tests/handoff.test.cjs",
+    "db:backup": "node scripts/db/backup.cjs",
+    "db:migrate": "node scripts/db/migrate.cjs && node scripts/db/backfill.cjs",
+    "db:seed": "node scripts/db/seed-catalog.cjs && node scripts/db/import-nyc.cjs && node scripts/db/seed-statistics.cjs",
+    "db:import:nyc": "node scripts/db/import-nyc.cjs --refresh",
+    "test:database": "node scripts/db/test-database.cjs",
+    "test:evidence": "node scripts/test-evidence-api.cjs"
   },
   "version": "0.1.0",
   "engines": {

@@ -30,12 +30,14 @@ RUN npm run build
 
 # Stage 4: Production Runner (For Render)
 FROM node:22-alpine AS production
-WORKDIR /app
+WORKDIR /app/backend
 
 # Copy built artifacts from the correct path
 COPY --from=builder /app/backend/dist ./dist
 COPY --from=builder /app/backend/node_modules ./node_modules
 COPY --from=builder /app/backend/package.json ./
+COPY --from=builder /app/database /app/database
+COPY --from=builder /app/scripts/db /app/scripts/db
 
 EXPOSE 3000
 CMD ["npm", "run", "start:prod"]

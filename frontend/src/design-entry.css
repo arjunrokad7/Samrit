@@ -3,3 +3,112 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Hide the page scrollbar without disabling wheel, touch or keyboard scrolling.
+   Nested lists and dialogs keep their own scrollbars as navigation cues. */
+html {
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+    --sr-canvas: 248 250 252;
+    --sr-surface: 255 255 255;
+    --sr-raised: 241 245 249;
+    --sr-fill: 226 232 240;
+    --sr-text: 36 69 87;
+    --sr-secondary: 72 77 72;
+    --sr-accent: 55 108 111;
+    --sr-green: 47 79 49;
+    --sr-placeholder: 148 163 184;
+    --sr-muted: 100 116 139;
+    --sr-subtle: 71 85 105;
+    --sr-line-soft: 241 245 249;
+    --sr-line: 226 232 240;
+    --sr-line-strong: 203 213 225;
+  }
+  :root.dark {
+    color-scheme: dark;
+    --sr-canvas: 16 28 35;
+    --sr-surface: 25 42 51;
+    --sr-raised: 32 51 61;
+    --sr-fill: 42 63 73;
+    --sr-text: 231 240 241;
+    --sr-secondary: 204 219 220;
+    --sr-accent: 135 205 199;
+    --sr-green: 161 206 166;
+    --sr-placeholder: 145 165 173;
+    --sr-muted: 159 182 191;
+    --sr-subtle: 178 198 204;
+    --sr-line-soft: 39 59 69;
+    --sr-line: 49 71 82;
+    --sr-line-strong: 70 94 105;
+  }
+  body {
+    background: rgb(var(--sr-canvas));
+    color: rgb(var(--sr-text));
+  }
+  input,
+  select,
+  textarea {
+    color: inherit;
+  }
+  input::placeholder,
+  textarea::placeholder {
+    color: rgb(var(--sr-placeholder));
+    opacity: 1;
+  }
+}
+
+/* Leaflet and QR codes have their own rendering surfaces. Street tiles and
+   evidence photos retain their original colors; only map controls are themed. */
+.dark .leaflet-container {
+  background: #192a33;
+  color: #e7f0f1;
+}
+.dark .leaflet-popup-content-wrapper,
+.dark .leaflet-popup-tip,
+.dark .leaflet-bar a {
+  background: #192a33;
+  color: #e7f0f1;
+}
+.dark .leaflet-bar a:hover {
+  background: #20333d;
+}
+.dark .leaflet-control-attribution {
+  background: #192a33ef;
+  color: #b2c6cc;
+}
+.dark .leaflet-control-attribution a {
+  color: #87cdc7;
+}
+.dark .leaflet-popup-close-button {
+  color: #ccdbdc;
+}
+.sr-qr > svg {
+  background: #fff !important;
+  color-scheme: light;
+}
+.dark .shadow-stacked,
+.dark .shadow-stacked-sm {
+  --tw-shadow-color: #0b151b;
+}
+.dark .bg-red-50 {
+  background-color: #3a242b;
+}
+.dark .bg-amber-50 {
+  background-color: #352e23;
+}
+.dark .text-red-700,
+.dark .text-red-800 {
+  color: #ffb4bb;
+}
+.dark .text-amber-800 {
+  color: #f0ce8b;
+}
