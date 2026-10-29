@@ -2,23 +2,32 @@
 
 **A place at the table. A community behind it.**
 
-Samrit connects people looking for food with community resources and helps a central NGO recover event surplus through accountable pickup, dispatch and delivery. Built for New York City, the platform combines a public meal finder with workspaces for donors, distribution centers, NGO-managed drivers and administrators.
+**Built at SBUHacks 2026 · Stony Brook University**
 
-The submission is a working hackathon prototype. It includes real publicly listed NYC facilities, clearly separated fictional meal offers, and synthetic operational fixtures. It does not claim live food availability, verified partnerships, certified food safety or production readiness.
+Samrit is a food-rescue coordination and accessibility platform connecting people seeking meals, event organizers with surplus food, distribution centers, and a central NGO managing pickups and deliveries. Designed around New York City, it brings meal discovery, donor workflows, dispatch, and accountability into one system.
+
+Our guiding idea: **make food easier to access while making distribution easier to coordinate and track.**
 
 ![Samrit landing page](docs/images/landing-light.png)
 
-## What you can do
+## Highlights
 
-- **Find food without an account:** explore sample meals, select allergens, enter preferences such as “I cannot eat cold food,” and browse a sourced NYC assistance directory with maps.
-- **Recover surplus:** extract menus or invoices with Gemini, confirm the actual food details, create an event, and record leftover portions with pickup evidence.
-- **Coordinate NGO resources:** provision drivers, manage truck capabilities and equipment, approve centers, assign compatible resources, and monitor routes and reported locations.
-- **Track custody:** record donor, pickup and receiving photos; scan the event and venue QRs; bind a unique container sticker; enforce permissions, GPS proximity and workflow order.
-- **Collect private feedback:** use one shared venue check-in QR for delivery arrivals and meal visitors. Visitors finish in the app and submit a private review without an exit QR.
-- **Support human oversight:** Gemini provides schema-validated extraction, matching and review assistance. Staff confirm food records and evaluate review analysis.
-- **Use the interface on desktop or mobile:** persistent light/dark themes, keyboard-accessible controls, camera QR scanning and printed-code fallback.
+- **Discover meals without an account:** explore demo meal offers, filter allergens, describe dietary preferences in everyday language, and browse NYC assistance locations on a map.
+- **Rescue event surplus:** create donor events, use Gemini to extract food information from menus or invoices, confirm dishes, and record leftover servings for pickup.
+- **Coordinate NGO logistics:** approve receiving centers, manage drivers and vehicles, check equipment and handling compatibility, and assign deliveries.
+- **Document the chain of custody:** use event and venue QR scans, unique container stickers, pickup and intake photographs, and ordered handoff records.
+- **Collect private feedback:** visitors check in with a shared venue QR, finish their visit in the app, and send feedback for NGO review.
+- **Apply AI with safeguards:** Gemini assists with meal matching, document extraction and review analysis; the backend validates its outputs while staff retain responsibility for operational decisions.
+- **Offer accessible interactions:** combine responsive layouts, light/dark themes, keyboard-friendly controls and voice assistance using ElevenLabs for speech and Gemini for intent interpretation.
 
-## Start here
+## How it works
+
+1. A donor records an event, confirms the menu and marks the remaining servings.
+2. The NGO reviews the food batch and assigns a suitable driver, vehicle and approved receiving center.
+3. QR scans, container identification and photos document the pickup and delivery handoffs.
+4. People looking for food can search available demo offers and assistance listings, with voice and preference-based discovery.
+
+## Documentation
 
 | Reader | Documentation |
 | --- | --- |
@@ -38,11 +47,12 @@ The submission is a working hackathon prototype. It includes real publicly liste
 | API | NestJS with the Express adapter, JWT authentication, role checks and Zod contracts |
 | Data | PostgreSQL 15+, relational schemas, foreign keys, constraints and versioned migrations |
 | Cache / infrastructure | Redis 7, Docker Compose for local services |
-| AI | One server-side Gemini gateway for filtering, menu/invoice extraction and private-review analysis |
+| AI | Server-side Gemini gateway for meal filtering, document extraction, review analysis and voice intent interpretation |
+| Speech | ElevenLabs speech transcription and synthesis |
 | Maps and scanning | Leaflet/OpenStreetMap, browser geolocation, camera QR scanning and generated QR codes |
 | Validation | Jest, Vitest, Playwright-based browser/API walkthroughs and isolated database checks |
 
-No Python environment or pip requirements are needed. Exact JavaScript dependencies are recorded in the backend and frontend lockfiles.
+The frontend and backend use JavaScript/TypeScript; exact dependencies are pinned in their lockfiles.
 
 ## Run locally
 
@@ -76,11 +86,11 @@ node scripts/seed-accounts.cjs
 - API documentation: **http://localhost:3000/api**
 - Health endpoint: **http://localhost:3000/health**
 
-The demo seed is localhost-only. It creates or reuses fictional fixtures; it does not import another developer's database or reset existing routes. Optional `node scripts/seed-fleet.cjs --with-route` adds a synthetic route when its chosen driver and truck are free.
+The demo seed creates or reuses local example data without resetting existing routes. Optional `node scripts/seed-fleet.cjs --with-route` creates an example route when its chosen driver and truck are available.
 
 ### Demo accounts
 
-These credentials are **local test fixtures**, created by the commands above. They are not production credentials.
+The following accounts are created by the local demo seed commands **for development and testing only**. Do not use them in a public deployment.
 
 | Category | Email | Password |
 | --- | --- | --- |
@@ -127,18 +137,20 @@ Results, screenshots and generated test QR images go into ignored output folders
 node scripts/create-demo-test-pack.cjs
 ```
 
-This creates a fresh test event and downloadable QR images, sample menu/invoice PDFs, synthetic stage photos and walkthrough instructions under `releases/demo-test-pack/`.
+This creates a test event, QR images, sample menu/invoice PDFs, example handoff photos and walkthrough instructions under `releases/demo-test-pack/`.
 
-## Data, trust and current boundaries
+## Demo data and responsible use
 
-- The checked-in import has **59 accepted NYC facility listings**, with source records and provenance from [NYC Open Data](https://data.cityofnewyork.us/City-Government/Facilities-Database/ji82-xba5). Public listings do not establish a Samrit partnership or current availability.
-- Three fictional consumer meals support the preference-search demo. Dispatch records do not automatically publish live public meal offers in this version.
-- Operational drivers, vehicles, routes, menu quantities and evidence in the demo are synthetic. Historical public NGO statistics are stored separately and never become dispatchable resources.
-- GPS is client-reported; static QR codes can be copied; photos and hashes record custody but cannot certify food safety. Route lines and time estimates are planning approximations, not traffic-aware navigation.
-- Visitor duration ends when the visitor presses Finish. It does not verify departure or queue duration. Feedback is restricted to central NGO review; AI is not a truth detector.
-- Typing an address does not geocode it. Donor GPS uses the current-location action or configured defaults; verified geocoding is a production requirement.
+- The assistance directory includes **59 listings** imported with provenance from [NYC Open Data](https://data.cityofnewyork.us/City-Government/Facilities-Database/ji82-xba5). These public directory entries are not verified Samrit partners or confirmations of current meal availability.
+- The meal finder currently demonstrates preference search with **three sample meal offers**. Connecting completed rescue deliveries to automatically published public offers is a planned integration.
+- The local demo uses example drivers, vehicles, routes and handoff evidence. Food-safety decisions remain with responsible people and organizations; QR records, photographs and hashes support traceability rather than certify safety.
+- GPS and route information are intended for coordination, not independent proof of presence or live vehicle navigation. Visit duration reflects check-in through the visitor's Finish action.
 
-See [Roadmap](docs/ROADMAP.md) for launch prerequisites, including partner verification, accessibility validation, storage access controls, distributed rate limiting, retention policies and independently reviewed food-safety/legal procedures.
+See the [Roadmap](docs/ROADMAP.md) for current integration priorities and steps toward real-world deployment, including partner onboarding, accessibility, security and food-handling review.
+
+## Team and collaboration
+
+Developed collaboratively for **SBUHacks 2026**, hosted by the Computer Science Society at Stony Brook University. See the [team workflow](docs/TEAM_WORKFLOW.md) for collaboration guidance.
 
 ## Share and collaborate
 
@@ -146,4 +158,4 @@ See [Roadmap](docs/ROADMAP.md) for launch prerequisites, including partner verif
 
 ## License and attribution
 
-Samrit is distributed under the [MIT License](LICENSE). It builds on the existing Food Redistribution Platform foundation; required original notices are preserved in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). OpenStreetMap attribution remains visible on maps. Public-source provenance is retained with imported records. Gemini and public data sources do not imply endorsement or partnership.
+Samrit is distributed under the [MIT License](LICENSE). The project builds on the Food Redistribution Platform foundation; original notices are retained in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). OpenStreetMap attribution remains visible on maps. Public-source provenance is retained with imported records. Gemini and public data sources do not imply endorsement or partnership.
